@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Backend Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/index.js"],
+      "port": 3001
+    },
+    {
+      "name": "Backend Server (watch)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--watch", "server/index.js"],
+      "port": 3001
+    },
+    {
+      "name": "Electron App",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["electron", "."],
+      "port": null
+    },
+    {
+      "name": "Electron App (dev)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["cross-env", "NODE_ENV=development", "electron", "."],
+      "port": null
+    }
+  ]
+}

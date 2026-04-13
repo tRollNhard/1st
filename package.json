@@ -5,19 +5,28 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "NODE_ENV=development electron .",
+    "dev": "concurrently --names server,electron --prefix-colors blue,green \"npm run server\" \"cross-env NODE_ENV=development electron .\"",
     "server": "node server/index.js",
+    "server:dev": "node --watch server/index.js",
     "setup": "bash setup.sh"
   },
   "dependencies": {
     "electron-reload": "^2.0.0-alpha.1"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^33.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["claude", "ai", "electron", "composio", "cowork"],
+  "keywords": [
+    "claude",
+    "ai",
+    "electron",
+    "composio",
+    "cowork"
+  ],
   "license": "MIT"
 }
