@@ -1,0 +1,23 @@
+{
+  "name": "open-claude-cowork",
+  "version": "1.0.0",
+  "description": "AI cowork desktop app — Claude Agent SDK + Composio tool router",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "server": "node server/index.js",
+    "setup": "bash setup.sh"
+  },
+  "dependencies": {
+    "electron-reload": "^2.0.0-alpha.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["claude", "ai", "electron", "composio", "cowork"],
+  "license": "MIT"
+}
