@@ -24,6 +24,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["cross-env", "NODE_ENV=development", "electron", "."],
       "port": null
+    },
+    {
+      "name": "Neon Visualizer",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4500", "--directory", "visualization"],
+      "port": 4500
     }
   ]
 }

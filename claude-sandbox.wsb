@@ -1,0 +1,40 @@
+<Configuration>
+  <!--
+    Claude.ai Sandbox — runs the entire Claude web client inside an
+    ephemeral Windows VM. Everything the browser (or Claude itself)
+    touches lives in the sandbox; nothing persists to the host.
+
+    Double-click this file to launch. Close the sandbox window to
+    destroy every trace of the session.
+  -->
+
+  <!-- Hardened isolation defaults -->
+  <VGpu>Enable</VGpu>                              <!-- virtual GPU for smooth rendering -->
+  <Networking>Default</Networking>                 <!-- required: claude.ai is a web service -->
+  <ProtectedClient>Enable</ProtectedClient>        <!-- extra hardening of the sandbox shell -->
+  <AudioInput>Disable</AudioInput>                 <!-- no mic passthrough -->
+  <VideoInput>Disable</VideoInput>                 <!-- no webcam passthrough -->
+  <PrinterRedirection>Disable</PrinterRedirection> <!-- no printer access -->
+  <ClipboardRedirection>Enable</ClipboardRedirection> <!-- copy/paste in/out (disable for strictest mode) -->
+
+  <!-- No mapped folders by default — host filesystem is completely invisible
+       to the sandbox. Uncomment and adjust if you need to drop a file in. -->
+  <!--
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\Jason W Clark\Desktop\claude projects</HostFolder>
+      <SandboxFolder>C:\project</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  -->
+
+  <!-- Auto-launch Edge at claude.ai in an InPrivate window. InPrivate is
+       belt-and-braces: the sandbox is ephemeral anyway, but InPrivate also
+       means no Edge sync / no profile attempt. -->
+  <LogonCommand>
+    <Command>cmd.exe /c start "" "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --inprivate --new-window https://claude.ai</Command>
+  </LogonCommand>
+
+  <MemoryInMB>4096</MemoryInMB>
+</Configuration>

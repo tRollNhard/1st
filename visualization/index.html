@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';" />
+<title>Neon Visualizer</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #000; overflow: hidden;
+    font-family: -apple-system, Segoe UI, Inter, sans-serif;
+    color: #eee;
+  }
+  canvas#c { display: block; position: fixed; inset: 0; }
+
+  #panel {
+    position: fixed; top: 16px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 10, 20, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 12px 16px; border-radius: 14px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    z-index: 10; transition: opacity 0.6s;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    max-width: 92vw;
+  }
+  #panel.hide { opacity: 0; pointer-events: none; }
+
+  button {
+    background: linear-gradient(135deg, #ff00e5, #00f0ff, #f0ff00);
+    color: #000; font-weight: 700; border: none;
+    padding: 10px 14px; border-radius: 10px;
+    cursor: pointer; font-size: 13px;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(255, 0, 229, 0.5); }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  button.ghost { background: transparent; color: #ccc; border: 1px solid rgba(255,255,255,0.22); }
+  button.ghost:hover { box-shadow: 0 0 16px rgba(0, 240, 255, 0.25); }
+  button.active { outline: 2px solid #fff; outline-offset: 2px; }
+  button[disabled] { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .sep { width: 1px; height: 22px; background: rgba(255,255,255,0.18); margin: 0 4px; }
+  #hint { font-size: 11px; opacity: 0.7; }
+
+  #status {
+    position: fixed; bottom: 12px; left: 14px;
+    font-size: 11px; opacity: 0.7; letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums; z-index: 10;
+  }
+
+  /* Audio level meter — proves audio is reaching the analyser */
+  #meter {
+    position: fixed; bottom: 12px; right: 14px; z-index: 10;
+    display: flex; gap: 4px; align-items: flex-end;
+    height: 36px; padding: 4px 8px;
+    background: rgba(10,10,20,0.55);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    font-size: 10px; color: #aaa;
+  }
+  #meter .bar {
+    width: 6px; background: linear-gradient(to top, #00f0ff, #ff00e5);
+    border-radius: 2px; transition: height 0.04s linear;
+    min-height: 2px;
+  }
+  #meter .label { margin-right: 6px; opacity: 0.7; }
+
+  /* TikTok mode: centered 9:16 letterbox */
+  body.tiktok #frame {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 5;
+  }
+  body.tiktok #frame .box {
+    width: calc(min(100vh * 9 / 16, 100vw));
+    height: calc(min(100vh, 100vw * 16 / 9));
+    outline: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
+  }
+  #frame { display: none; }
+  body.tiktok #frame { display: flex; }
+
+  #rec-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #ff2d2d; display: none;
+    box-shadow: 0 0 10px rgba(255,45,45,0.8);
+    animation: pulse 1s infinite;
+  }
+  body.recording #rec-dot { display: inline-block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="frame"><div class="box"></div></div>
+
+<div id="panel">
+  <button id="btn-spotify" class="active" aria-label="Spotify fullscreen mode" aria-pressed="true">Spotify Mode</button>
+  <button id="btn-tiktok" class="ghost" aria-label="TikTok 9 by 16 vertical mode" aria-pressed="false">TikTok 9:16</button>
+  <div class="sep"></div>
+  <button id="btn-mic" class="ghost" aria-label="Microphone input" aria-pressed="false">🎤 Microphone</button>
+  <button id="btn-sys" aria-label="System audio input (Spotify loopback)" aria-pressed="false">🔊 System Audio</button>
+  <button id="btn-stop" class="ghost" disabled aria-label="Stop audio input">Stop Audio</button>
+  <div class="sep"></div>
+  <button id="btn-camera" class="ghost" aria-label="Toggle webcam background" aria-pressed="false">Camera</button>
+  <button id="btn-record" class="ghost" disabled aria-label="Record TikTok video">● Record</button>
+  <span id="rec-dot" aria-hidden="true"></span>
+  <span id="rec-time" aria-live="polite"></span>
+  <span id="hint">F11 fullscreen · Click canvas to hide controls · Esc reshow · R record</span>
+</div>
+
+<div id="status" role="status" aria-live="polite">idle — pick Microphone (ambient) or System Audio (Spotify on Windows default output)</div>
+<div id="meter">
+  <span class="label">IN</span>
+  <div class="bar" id="bar-bass"></div>
+  <div class="bar" id="bar-mid"></div>
+  <div class="bar" id="bar-high"></div>
+</div>
+
+<script>
+// Surface any uncaught script error into the status bar so we can see it
+// in packaged builds (no devtools). Printed once per distinct message to
+// keep a flood of the same error from spamming.
+window.__shownErrs = new Set();
+window.addEventListener('error', (e) => {
+  const msg = (e.error && e.error.stack) || e.message || 'unknown error';
+  const key = msg.split('\n')[0];
+  if (window.__shownErrs.has(key)) return;
+  window.__shownErrs.add(key);
+  const el = document.getElementById('status');
+  if (el) el.textContent = 'ERR: ' + key.slice(0, 240);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = (e.reason && (e.reason.stack || e.reason.message)) || String(e.reason);
+  const key = msg.split('\n')[0];
+  if (window.__shownErrs.has(key)) return;
+  window.__shownErrs.add(key);
+  const el = document.getElementById('status');
+  if (el) el.textContent = 'REJ: ' + key.slice(0, 240);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Mode
+// ──────────────────────────────────────────────────────────────────────────
+let mode = 'spotify';
+function setMode(next) {
+  // Changing canvas dimensions mid-recording breaks the captured stream
+  // (many players reject resolution changes). Block the switch while active.
+  if (recorder && recorder.state === 'recording') {
+    setStatus('Stop recording before switching modes');
+    return;
+  }
+  mode = next;
+  document.body.classList.toggle('tiktok', mode === 'tiktok');
+  const spot = document.getElementById('btn-spotify');
+  const tik = document.getElementById('btn-tiktok');
+  spot.classList.toggle('active', mode === 'spotify');
+  spot.classList.toggle('ghost',  mode !== 'spotify');
+  spot.setAttribute('aria-pressed', String(mode === 'spotify'));
+  tik.classList.toggle('active', mode === 'tiktok');
+  tik.classList.toggle('ghost',  mode !== 'tiktok');
+  tik.setAttribute('aria-pressed', String(mode === 'tiktok'));
+  document.getElementById('btn-record').disabled = (mode !== 'tiktok') || !started;
+  // Leaving TikTok mode — turn off the webcam so the LED / privacy indicator
+  // doesn't linger. Camera is a TikTok-template feature; irrelevant in Spotify.
+  if (mode !== 'tiktok' && cameraStream) toggleCamera();
+  resize();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Canvas + draw region
+// ──────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+// Offscreen "field" canvas — we render the blobs here with tight falloffs,
+// then blit back into the main canvas through a blur+contrast filter chain.
+// That combo is the classic CSS "gooey" trick: heavy blur smears neighbors
+// together, high-contrast colormatrix sharpens the edge back up → true
+// metaball merging (organic liquid fusing), not just overlapping gradients.
+const metaCanvas = document.createElement('canvas');
+const metaCtx = metaCanvas.getContext('2d');
+let W, H;
+let rectX, rectY, rectW, rectH, drawCx, drawCy;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Curl-noise velocity field — cheap pseudo-curl derived from sinusoidal
+// scalar fields. ∇ × f = (∂f/∂y, -∂f/∂x). Divergence-free by construction,
+// so particles advected through it swirl and braid rather than diverging or
+// piling up. Time-varying so the field itself slowly evolves.
+function curl(x, y, t) {
+  const sx = 0.0018, sy = 0.0022;
+  const a = Math.sin(x * sx + t * 0.23) * Math.cos(y * sy + t * 0.17);
+  const b = Math.sin(x * sx * 1.7 - t * 0.19) * Math.cos(y * sy * 1.3 + t * 0.29);
+  const f = a + b * 0.6;
+  // Partials by small-offset finite difference approximation
+  const eps = 2;
+  const fx = (Math.sin((x + eps) * sx + t * 0.23) * Math.cos(y * sy + t * 0.17)
+            + Math.sin((x + eps) * sx * 1.7 - t * 0.19) * Math.cos(y * sy * 1.3 + t * 0.29) * 0.6) - f;
+  const fy = (Math.sin(x * sx + t * 0.23) * Math.cos((y + eps) * sy + t * 0.17)
+            + Math.sin(x * sx * 1.7 - t * 0.19) * Math.cos((y + eps) * sy * 1.3 + t * 0.29) * 0.6) - f;
+  // Curl of scalar field → 2D vector (∂/∂y, -∂/∂x)
+  return { x: fy / eps, y: -fx / eps };
+}
+
+function resize() {
+  // Don't change canvas dimensions mid-recording — MediaRecorder producers
+  // that change resolution produce broken/unplayable WebM segments.
+  if (recorder && recorder.state === 'recording') return;
+  const dpr = devicePixelRatio || 1;
+  W = canvas.width = window.innerWidth * dpr;
+  H = canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  // Meta canvas at full resolution. Half-res caused upscale artifacts on
+  // Chromium canvas-2D filter drawImage; the blur cost at full-res is
+  // negligible on modern GPUs since the filter is GPU-accelerated.
+  metaCanvas.width = W;
+  metaCanvas.height = H;
+
+  if (mode === 'tiktok') {
+    const availW = window.innerWidth, availH = window.innerHeight;
+    const vw = Math.min(availH * 9 / 16, availW);
+    const vh = vw * 16 / 9;
+    rectW = vw * dpr; rectH = vh * dpr;
+    rectX = (W - rectW) / 2; rectY = (H - rectH) / 2;
+  } else {
+    rectX = 0; rectY = 0; rectW = W; rectH = H;
+  }
+  drawCx = rectX + rectW / 2;
+  drawCy = rectY + rectH / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ──────────────────────────────────────────────────────────────────────────
+// Audio
+// ──────────────────────────────────────────────────────────────────────────
+let audioCtx, analyser, freq;
+let audioSourceNode = null;
+let started = false;
+let audioStream = null;
+let audioStarting = false; // in-flight guard to prevent double-prompts
+let audioSourceLabel = '';
+let silenceAccum = 0;
+let silenceWarned = false;
+
+async function startWithStream(stream, label) {
+  if (started) return;
+  audioStream = stream;
+  audioSourceLabel = label;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Autoplay policy: contexts created outside a gesture can be 'suspended'.
+  // We're inside a click handler, but resume defensively.
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch (_) {}
+  }
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  // Low smoothing = sharp transients survive, giving clean beat detection
+  analyser.smoothingTimeConstant = 0.4;
+  freq = new Uint8Array(analyser.frequencyBinCount);
+  audioSourceNode = audioCtx.createMediaStreamSource(stream);
+  audioSourceNode.connect(analyser);
+
+  // If the upstream audio track ends (device switch, tab close, Spotify
+  // quit), fall back cleanly instead of silently feeding zeros forever.
+  stream.getAudioTracks().forEach(t => {
+    t.addEventListener('ended', () => {
+      if (!started) return;
+      setStatus('audio track ended — click Microphone or System Audio to resume');
+      stopAudio();
+    });
+  });
+
+  started = true;
+  setStatus(`listening · ${label}`);
+  document.getElementById('btn-mic').disabled = true;
+  document.getElementById('btn-sys').disabled = true;
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('btn-mic').classList.toggle('active', label === 'mic');
+  document.getElementById('btn-sys').classList.toggle('active', label === 'system');
+  document.getElementById('btn-record').disabled = (mode !== 'tiktok');
+  requestAnimationFrame(frame);
+}
+
+function stopAudio() {
+  // If we're mid-record, stop that first so the webm closes cleanly.
+  if (recorder && recorder.state === 'recording') stopRecording();
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
+    audioStream = null;
+  }
+  if (audioSourceNode) {
+    try { audioSourceNode.disconnect(); } catch (_) {}
+    audioSourceNode = null;
+  }
+  if (audioCtx) {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
+  }
+  analyser = null;
+  started = false;
+  silenceAccum = 0;
+  silenceWarned = false;
+  document.getElementById('btn-mic').disabled = false;
+  document.getElementById('btn-sys').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-mic').classList.remove('active');
+  document.getElementById('btn-mic').classList.add('ghost');
+  document.getElementById('btn-sys').classList.remove('active');
+  document.getElementById('btn-sys').classList.add('ghost');
+  document.getElementById('btn-record').disabled = true;
+  setStatus('stopped — pick Microphone or System Audio to resume');
+  // Re-enter the idle animation (guarded so we never schedule twice)
+  if (!idleScheduled) { idleScheduled = true; requestAnimationFrame(idleFrame); }
+}
+
+async function startMic() {
+  if (audioStarting) return;
+  // If already running from a different source, stop-then-restart so users
+  // can switch Mic ↔ System Audio without clicking Stop first.
+  if (started && audioSourceLabel !== 'mic') stopAudio();
+  if (started) return;
+  audioStarting = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        // Keep loud transients intact — autoGain/noiseSuppression would
+        // flatten beats and kill the reactive feel.
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+      video: false,
+    });
+    await startWithStream(stream, 'mic');
+  } catch (err) {
+    alert('Could not access microphone: ' + (err && err.message ? err.message : err));
+  } finally {
+    audioStarting = false;
+  }
+}
+
+async function startSystemAudio() {
+  if (audioStarting) return;
+  // Symmetric switch-source path — clicking System while Mic is active
+  // stops mic and restarts as system audio in one click.
+  if (started && audioSourceLabel !== 'system') stopAudio();
+  if (started) return;
+  audioStarting = true;
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      alert(
+        'No audio captured.\n\n' +
+        'In Chrome app-mode: re-run and tick "Share tab audio" when picking the Spotify tab.\n' +
+        'In Electron: make sure something is actually playing on the Windows default output device.'
+      );
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+    stream.getVideoTracks().forEach(t => t.stop());
+    await startWithStream(new MediaStream(audioTracks), 'system');
+  } catch (err) {
+    // NotAllowedError is expected if user cancels the picker — don't alert
+    if (err && err.name !== 'NotAllowedError') {
+      alert('Could not capture system audio: ' + (err.message || err));
+    }
+  } finally {
+    audioStarting = false;
+  }
+}
+
+document.getElementById('btn-mic').addEventListener('click', startMic);
+document.getElementById('btn-sys').addEventListener('click', startSystemAudio);
+document.getElementById('btn-stop').addEventListener('click', stopAudio);
+document.getElementById('btn-spotify').addEventListener('click', () => setMode('spotify'));
+document.getElementById('btn-tiktok').addEventListener('click',  () => setMode('tiktok'));
+
+// ──────────────────────────────────────────────────────────────────────────
+// Camera — live webcam feed as background layer (face + laser overlay is the
+// TikTok-template look). Drawn first each frame, then visualizer on top.
+// ──────────────────────────────────────────────────────────────────────────
+let cameraEl = null;
+let cameraStream = null;
+async function toggleCamera() {
+  const btn = document.getElementById('btn-camera');
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+    if (cameraEl) { cameraEl.srcObject = null; cameraEl = null; }
+    btn.textContent = 'Camera';
+    btn.classList.add('ghost');
+    btn.classList.remove('active');
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    cameraEl = document.createElement('video');
+    cameraEl.srcObject = cameraStream;
+    cameraEl.autoplay = true;
+    cameraEl.muted = true;
+    cameraEl.playsInline = true;
+    try {
+      await cameraEl.play();
+    } catch (playErr) {
+      // Autoplay-policy or codec failure — surface instead of silently
+      // showing "Camera ✓" with a black frame
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+      cameraEl = null;
+      alert('Camera acquired but could not play: ' + (playErr.message || playErr));
+      return;
+    }
+    btn.textContent = 'Camera ✓';
+    btn.classList.remove('ghost');
+    btn.classList.add('active');
+  } catch (err) {
+    alert('Could not access camera: ' + err.message);
+  }
+}
+document.getElementById('btn-camera').addEventListener('click', toggleCamera);
+
+// ──────────────────────────────────────────────────────────────────────────
+// Recording
+// ──────────────────────────────────────────────────────────────────────────
+let recorder = null, recChunks = [];
+let recStart = 0, recTimerHandle = 0;
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function tickRecTimer() {
+  document.getElementById('rec-time').textContent = fmtTime(performance.now() - recStart);
+}
+function resetRecordUI() {
+  document.body.classList.remove('recording');
+  document.getElementById('btn-record').textContent = '● Record';
+  // Re-enable mode buttons that were disabled during recording
+  document.getElementById('btn-spotify').disabled = false;
+  document.getElementById('btn-tiktok').disabled = false;
+  if (recTimerHandle) { clearInterval(recTimerHandle); recTimerHandle = 0; }
+  document.getElementById('rec-time').textContent = '';
+}
+function startRecording() {
+  if (!started || mode !== 'tiktok') return;
+  if (recorder && recorder.state === 'recording') return; // idempotent
+  const liveAudio = audioStream && audioStream.getAudioTracks().filter(t => t.readyState === 'live');
+  if (!liveAudio || liveAudio.length === 0) {
+    setStatus('cannot record — no live audio track');
+    return;
+  }
+  // captureStream(0) + manual requestFrame would give frame-perfect timing
+  // at variable refresh rates, but produces files where playback rate can
+  // drift. Fixed 60 is the right trade for typical TikTok export.
+  const canvasStream = canvas.captureStream(60);
+  const tracks = [...canvasStream.getVideoTracks(), ...liveAudio];
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+    ? 'video/webm;codecs=vp9,opus'
+    : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+      ? 'video/webm;codecs=vp8,opus'
+      : 'video/webm';
+  try {
+    recorder = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+  } catch (err) {
+    setStatus('recorder init failed: ' + (err.message || err));
+    return;
+  }
+  recChunks = [];
+  recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onerror = e => {
+    setStatus('recorder error: ' + (e.error && e.error.name ? e.error.name : 'unknown'));
+    try { recorder.stop(); } catch (_) {}
+  };
+  recorder.onstop = () => {
+    try {
+      if (recChunks.length === 0) {
+        setStatus('recording produced no data');
+      } else {
+        const blob = new Blob(recChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `tiktok-visualizer-${Date.now()}.webm`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        setStatus('saved ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+      }
+    } finally {
+      // Always free chunk memory — VP9 @ 8Mbps holds ~60MB/minute otherwise
+      recChunks = [];
+      resetRecordUI();
+    }
+  };
+  try {
+    recorder.start(500);
+  } catch (err) {
+    setStatus('recorder.start failed: ' + (err.message || err));
+    return;
+  }
+  document.body.classList.add('recording');
+  document.getElementById('btn-record').textContent = '■ Stop';
+  // Block mode changes mid-record (resize() also guards, but disabling the
+  // UI is clearer feedback).
+  document.getElementById('btn-spotify').disabled = true;
+  document.getElementById('btn-tiktok').disabled = true;
+  recStart = performance.now();
+  tickRecTimer();
+  recTimerHandle = setInterval(tickRecTimer, 500);
+  setStatus('recording');
+}
+function stopRecording() {
+  if (!recorder || recorder.state === 'inactive') return;
+  try { recorder.stop(); } catch (_) {}
+  // Note: actual UI reset happens in onstop (handles both user-click and
+  // track-end / error paths consistently).
+}
+document.getElementById('btn-record').addEventListener('click', () => {
+  (recorder && recorder.state === 'recording') ? stopRecording() : startRecording();
+});
+
+canvas.addEventListener('click', () => {
+  document.getElementById('panel').classList.toggle('hide');
+});
+window.addEventListener('keydown', (e) => {
+  // Esc: if in fullscreen, let the browser handle its native "exit fullscreen"
+  // (don't preventDefault). If not fullscreen, reshow the panel — key recovery
+  // path when the user hid it with a canvas click and can't find it again.
+  if (e.key === 'Escape' && !document.fullscreenElement) {
+    document.getElementById('panel').classList.remove('hide');
+  }
+  // F11 fullscreen — works in Electron (Menu.setApplicationMenu(null)
+  // disables the native shortcut) and in Chrome app-mode (where the
+  // browser's own F11 would also work, but this keeps parity).
+  if (e.key === 'F11') {
+    e.preventDefault();
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+  // R toggles recording in TikTok mode
+  if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (started && mode === 'tiktok') {
+      (recorder && recorder.state === 'recording') ? stopRecording() : startRecording();
+    }
+  }
+});
+
+// Clean up streams on close / reload — avoids lingering webcam LED and
+// orphaned display-media capture indicators in the Windows tray.
+window.addEventListener('beforeunload', () => {
+  if (cameraStream) { try { cameraStream.getTracks().forEach(t => t.stop()); } catch (_) {} }
+  if (audioStream)  { try { audioStream.getTracks().forEach(t => t.stop()); }  catch (_) {} }
+  if (recorder && recorder.state === 'recording') { try { recorder.stop(); } catch (_) {} }
+});
+
+function setStatus(s) { document.getElementById('status').textContent = s; }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Beat detection — spectral flux onset detector.
+// We track positive change in a tight bass band (bins ~1-7, ≈40-300Hz —
+// kick drum / bass guitar range) and fire when the flux spikes well above
+// its running average. Flux-based detection responds to TRANSIENTS, which
+// is what you perceive as a beat, rather than overall loudness.
+// ──────────────────────────────────────────────────────────────────────────
+let prevBassBins = new Uint8Array(8);
+let fluxAvg = 0;
+let lastBeat = 0;
+let flash = 0;           // 0–1, spikes to 1 on beat, decays each frame
+const BEAT_MIN_GAP_MS = 140;  // allows up to ~430 BPM (headroom for double-time)
+
+function detectBeat(now) {
+  let flux = 0;
+  for (let i = 1; i < 8; i++) {
+    const diff = freq[i] - prevBassBins[i];
+    if (diff > 0) flux += diff;
+    prevBassBins[i] = freq[i];
+  }
+  fluxAvg = fluxAvg * 0.92 + flux * 0.08;
+  const threshold = fluxAvg * 1.55 + 6;
+  if (flux > threshold && now - lastBeat > BEAT_MIN_GAP_MS) {
+    lastBeat = now;
+    return flux / (threshold || 1); // strength ratio (>1)
+  }
+  return 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Multi-color palette — anchors spread across the full hue wheel at all times
+// Each blob gets its own fixed hue anchor (golden-angle separation → maximum
+// perceptual distinctness) that only slowly rotates. This guarantees every
+// frame shows the full rainbow, not a single-hue family.
+// ──────────────────────────────────────────────────────────────────────────
+const BLOB_COUNT = 10;
+const GOLDEN = 137.508;
+let rotate = 0; // slow global rotation of the whole palette
+function hueFor(i, extra = 0) {
+  return (i * GOLDEN + rotate + extra) % 360;
+}
+function hsla(h, s, l, a) { return `hsla(${(h % 360 + 360) % 360}, ${s}%, ${l}%, ${a})`; }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Drip particles — gravity-affected droplets that fall from the blobs,
+// leaving stretched liquid trails. They give the "dripping" feel.
+// ──────────────────────────────────────────────────────────────────────────
+// Long spiraling "worms" — each has a multi-hundred-sample history so the
+// rendered trail is a long continuous sinuous line, not a short streak.
+const drips = [];
+const TRAIL_LEN = 100;    // long trails
+const MAX_DRIPS = 350;    // restrained count — sparse laser streaks, not a storm
+function spawnDrip(x, y, hue, vx0, vy0, energy) {
+  drips.push({
+    x, y,
+    vx: vx0 + (Math.random() - 0.5) * 40,
+    vy: vy0 * 0.2 + (Math.random() - 0.5) * 40,
+    r: 0.4 + Math.random() * 0.8, // very small heads
+    hue,
+    life: 1,
+    spin: (Math.random() < 0.5 ? 1 : -1) * (0.8 + Math.random() * 1.4),
+    noiseSeed: Math.random() * 1000,
+    history: [{ x, y }],
+  });
+  if (drips.length > MAX_DRIPS) drips.shift();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Ripples on beats
+// ──────────────────────────────────────────────────────────────────────────
+const ripples = [];
+function spawnRipple(strength, hue) {
+  ripples.push({ r: 0, life: 1, strength, hue });
+  if (ripples.length > 16) ripples.shift();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Render
+// ──────────────────────────────────────────────────────────────────────────
+let lastTime = 0;
+const DPR = () => devicePixelRatio || 1;
+
+function frame(nowMs) {
+  requestAnimationFrame(frame);
+  const now = nowMs || performance.now();
+  const t = now / 1000;
+  const dt = Math.min(0.05, (now - lastTime) / 1000) || 0.016;
+  lastTime = now;
+
+  analyser.getByteFrequencyData(freq);
+
+  // Energy bands
+  let bass = 0, mid = 0, high = 0;
+  const binCount = freq.length;
+  const bassEnd = Math.floor(binCount * 0.06);
+  const midEnd  = Math.floor(binCount * 0.25);
+  for (let i = 0; i < bassEnd;  i++) bass += freq[i];
+  for (let i = bassEnd; i < midEnd; i++) mid += freq[i];
+  for (let i = midEnd; i < binCount; i++) high += freq[i];
+  bass /= bassEnd * 255;
+  mid  /= (midEnd - bassEnd) * 255;
+  high /= (binCount - midEnd) * 255;
+
+  const beatStrength = detectBeat(now); // 0 if no beat; >1 on hit
+  const beat = beatStrength > 0;
+  if (beat) {
+    flash = Math.min(1, 0.6 + beatStrength * 0.25);
+    rotate = (rotate + 22 + Math.random() * 28) % 360;
+    spawnRipple(Math.min(1, 0.4 + beatStrength * 0.3), hueFor(Math.floor(Math.random() * BLOB_COUNT)));
+  }
+
+  // Drive the on-screen meter (proves audio is reaching the analyser)
+  document.getElementById('bar-bass').style.height = (4 + bass * 32) + 'px';
+  document.getElementById('bar-mid').style.height  = (4 + mid  * 32) + 'px';
+  document.getElementById('bar-high').style.height = (4 + high * 32) + 'px';
+
+  // Silent-input watchdog — if no audio arrives for >3s after starting,
+  // the loopback source isn't where Spotify is playing.
+  silenceAccum = (bass + mid + high < 0.02) ? silenceAccum + dt : 0;
+  if (silenceAccum > 3 && !silenceWarned) {
+    silenceWarned = true;
+    setStatus('NO INPUT — set Spotify output to your Windows default device (Sound settings → Volume mixer → Spotify → speakers)');
+  } else if (silenceAccum === 0 && silenceWarned) {
+    // Audio recovered — resume normal status
+    silenceWarned = false;
+  }
+  if (!silenceWarned) {
+    if (beat) setStatus(`BEAT ×${beatStrength.toFixed(2)}`);
+    else setStatus(`listening · bass ${(bass*100).toFixed(0)} mid ${(mid*100).toFixed(0)} hi ${(high*100).toFixed(0)}`);
+  }
+  // Flash decays exponentially — gives every beat a visible 150ms pulse
+  flash *= Math.exp(-dt * 6);
+  // Slow continuous rotation between beats
+  rotate = (rotate + 4 * dt) % 360;
+
+  const dpr = DPR();
+
+  // ── Clear / letterbox ───────────────────────────────────────────────
+  if (mode === 'tiktok') {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rectX, rectY, rectW, rectH);
+    ctx.clip();
+  }
+
+  // ── Very soft trail fade — low alpha so water trails persist long ──
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = `rgba(0, 0, 0, ${0.025 + (1 - bass) * 0.015})`;
+  ctx.fillRect(rectX, rectY, rectW, rectH);
+
+  // ── Camera feed as background layer (if enabled) ────────────────────
+  // Cover-fit the video into the draw rect, mirrored (webcam convention).
+  // Drawn before additive blend so the visualizer layers over it.
+  if (cameraEl && cameraEl.readyState >= 2) {
+    const vw = cameraEl.videoWidth, vh = cameraEl.videoHeight;
+    if (vw && vh) {
+      const scaleFit = Math.max(rectW / vw, rectH / vh);
+      const dw = vw * scaleFit, dh = vh * scaleFit;
+      const dx = rectX + (rectW - dw) / 2;
+      const dy = rectY + (rectH - dh) / 2;
+      ctx.save();
+      // Horizontal mirror so the feed reads like a mirror, not a camera
+      ctx.translate(dx + dw, dy);
+      ctx.scale(-1, 1);
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(cameraEl, 0, 0, dw, dh);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Everything bright is additive for the neon bloom.
+  ctx.globalCompositeOperation = 'lighter';
+
+  const scale = (mode === 'tiktok' ? 0.72 : 1);
+
+  // ── Core pulse — driven by BEAT FLASH (not continuous bass) so the
+  // center punches on every kick drum, clearly visible in sync
+  {
+    const coreR = (60 + flash * 320 + bass * 60) * dpr * scale;
+    const g = ctx.createRadialGradient(drawCx, drawCy, 0, drawCx, drawCy, coreR);
+    g.addColorStop(0.0, hsla(hueFor(0),      100, 65 + flash * 20, 0.95));
+    g.addColorStop(0.5, hsla(hueFor(0, 120), 100, 60 + flash * 15, 0.45 + flash * 0.35));
+    g.addColorStop(1.0, hsla(hueFor(0, 240), 100, 55, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(drawCx, drawCy, coreR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── Metaball pass: draw every blob as a TIGHT, near-solid radial mass
+  // into the offscreen field canvas. When we composite this back with
+  // blur+contrast, nearby blobs will visually FUSE into a single liquid
+  // body (true metaball isosurface), instead of just overlapping gradients.
+  metaCtx.setTransform(1, 0, 0, 1, 0, 0);
+  metaCtx.globalCompositeOperation = 'source-over';
+  metaCtx.clearRect(0, 0, metaCanvas.width, metaCanvas.height);
+  // Full-res drawing space — 1:1 coordinate mapping with the main canvas.
+  metaCtx.globalCompositeOperation = 'lighter';
+
+  // ── Orbiting liquid blobs, each with a distinct rainbow hue ─────────
+  for (let i = 0; i < BLOB_COUNT; i++) {
+    const blobHue = hueFor(i);
+    const angle = (i / BLOB_COUNT) * Math.PI * 2 + t * (0.22 + (i % 3) * 0.07);
+    const wobble = Math.sin(t * 1.6 + i * 1.7) * 0.3 + Math.cos(t * 2.3 + i) * 0.2;
+    const baseR = (140 + i * 16 + bass * 260 + mid * 120) * dpr * scale;
+    const r = baseR * (1 + wobble * 0.25);
+    // Curl-noise micro-displacement — blob positions breathe non-linearly
+    // instead of sitting on perfectly circular orbits. Gives a liquid-
+    // membrane feel where each blob is weakly pulled by the flow field.
+    const cf = curl(drawCx + Math.cos(angle) * r, drawCy + Math.sin(angle) * r, t);
+    const dispAmp = (30 + bass * 60 + flash * 40) * dpr * scale;
+    const x = drawCx + Math.cos(angle) * r + cf.x * dispAmp;
+    const y = drawCy + Math.sin(angle) * r + cf.y * dispAmp;
+    const blobR = (110 + bass * 200 + mid * 80 + Math.sin(t * 3 + i) * 30) * dpr * scale;
+
+    // Metaball pass — tight falloff, full-saturation core, into field canvas
+    const metaGrad = metaCtx.createRadialGradient(x, y, 0, x, y, blobR);
+    metaGrad.addColorStop(0.0, hsla(blobHue,      100, 62, 1.0));
+    metaGrad.addColorStop(0.55, hsla(blobHue + 18, 100, 58, 0.55));
+    metaGrad.addColorStop(1.0, hsla(blobHue,      100, 55, 0));
+    metaCtx.fillStyle = metaGrad;
+    metaCtx.beginPath();
+    metaCtx.arc(x, y, blobR, 0, Math.PI * 2);
+    metaCtx.fill();
+
+    // Soft halo pass on the main canvas — gives the merged liquid body a
+    // glowing aura that extends past the thresholded silhouette.
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, blobR * 1.4);
+    grad.addColorStop(0.0, hsla(blobHue,      100, 65, 0.35));
+    grad.addColorStop(0.5, hsla(blobHue + 30, 100, 60, 0.14));
+    grad.addColorStop(1.0, hsla(blobHue,      100, 55, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, blobR * 1.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ── Tentacle: multi-segment sinuous path from core → blob ─────────
+    // Each tentacle is a polyline with perpendicular sine-wave offsets
+    // along its length (amplitude peaks mid-length → 0 at root & tip, like
+    // a real whipping tentacle). Rendered in 3 passes for a neon look:
+    // outer halo, mid glow, bright core. Width tapers from thick base to
+    // fine tip. Each tentacle inherits the blob's rainbow hue.
+    const TENT_SEGS = 22;
+    const dxT = x - drawCx, dyT = y - drawCy;
+    const angBase = Math.atan2(dyT, dxT);
+    const perpX = -Math.sin(angBase), perpY = Math.cos(angBase);
+    const tentPts = [];
+    for (let s = 0; s <= TENT_SEGS; s++) {
+      const u = s / TENT_SEGS;
+      const envelope = Math.sin(u * Math.PI);                  // 0→1→0
+      const amp = (40 + bass * 90 + mid * 45 + flash * 60) * dpr * scale * envelope;
+      const wave = Math.sin(t * (2.0 + i * 0.32) + u * (6 + (i % 3)) + i * 1.3) * amp;
+      const cross = Math.cos(t * (1.3 + i * 0.21) + u * 4 + i) * amp * 0.4;
+      tentPts.push({
+        x: drawCx + dxT * u + perpX * wave,
+        y: drawCy + dyT * u + perpY * wave + cross,
+      });
+    }
+    // Three-pass neon stroke, tapered per-segment
+    for (let s = 0; s < tentPts.length - 1; s++) {
+      const u = s / (tentPts.length - 1);
+      const taper = Math.max(0.15, 1 - u * 0.88); // thick base → fine tip
+      const p1 = tentPts[s], p2 = tentPts[s + 1];
+      ctx.lineCap = 'round';
+      // Halo
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.strokeStyle = hsla(blobHue, 100, 58, 0.22 + mid * 0.2);
+      ctx.lineWidth = (10 + bass * 14) * dpr * scale * taper;
+      ctx.stroke();
+      // Mid
+      ctx.strokeStyle = hsla(blobHue + 12, 100, 68, 0.5);
+      ctx.lineWidth = (4.5 + bass * 6) * dpr * scale * taper;
+      ctx.stroke();
+      // Bright core
+      ctx.strokeStyle = hsla(blobHue, 100, 88, 0.95);
+      ctx.lineWidth = Math.max(1, (1.2 + bass * 2) * dpr * scale * taper);
+      ctx.stroke();
+    }
+
+    // Spawn STRICTLY on beats — this is what locks lasers to the rhythm.
+    // Between beats there's no spawn (scene decays and streaks fly out),
+    // creating clear visual pulses synced to the kick.
+    if (beat) {
+      const burst = 3 + Math.floor(beatStrength * 3);
+      for (let s = 0; s < burst; s++) {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        const vx = dir * (220 + beatStrength * 280 + Math.random() * 180);
+        const vy = (Math.random() - 0.5) * (60 + mid * 80);
+        spawnDrip(x, y, blobHue, vx, vy, 0.5 + beatStrength * 0.4);
+      }
+    }
+  }
+
+  // Gooey composite: blur softens the field, moderate contrast tightens
+  // the edges back into a merged liquid body, 'screen' composite keeps
+  // colors within [0,1] so we don't blow everything out to white the way
+  // 'lighter' + high contrast did.
+  const mergeBlur = (12 + bass * 6 + flash * 4) * dpr;
+  ctx.save();
+  ctx.filter = `blur(${mergeBlur}px) contrast(6)`;
+  ctx.globalCompositeOperation = 'screen';
+  ctx.drawImage(metaCanvas, 0, 0);
+  ctx.restore();
+
+  // ── High-freq sparkle rays — colored per-ray so whole rainbow shows ──
+  if (high > 0.08) {
+    ctx.save();
+    ctx.translate(drawCx, drawCy);
+    const rayCount = 28;
+    for (let i = 0; i < rayCount; i++) {
+      const rayHue = hueFor(i, 180);
+      const a = (i / rayCount) * Math.PI * 2 + t * 0.6;
+      const len = (100 + high * 420 + Math.sin(t * 4 + i) * 60) * dpr * scale;
+      const g = ctx.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+      g.addColorStop(0.0, hsla(rayHue, 100, 65, 0));
+      g.addColorStop(0.6, hsla(rayHue, 100, 65, 0.4 * high));
+      g.addColorStop(1.0, hsla(rayHue, 100, 65, 0));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Beat ripples (each its own hue) ─────────────────────────────────
+  for (const rp of ripples) {
+    rp.r += (420 + rp.strength * 600) * dt * dpr;
+    rp.life -= dt * 0.9;
+    if (rp.life <= 0) continue;
+    ctx.strokeStyle = hsla(rp.hue, 100, 65, rp.life * 0.75);
+    ctx.lineWidth = (4 + rp.strength * 8) * dpr * rp.life;
+    ctx.beginPath();
+    ctx.arc(drawCx, drawCy, rp.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    if (ripples[i].life <= 0) ripples.splice(i, 1);
+  }
+
+  // ── Long horizontal spiraling streak-worms ──────────────────────────
+  // Physics: near-zero gravity + rotational spin force (spiral) + gentle
+  // sinusoidal vertical wobble. Trails are rendered from a long per-worm
+  // history as a smooth polyline so each streak is a single long line.
+  const GRAVITY = 20 * dpr; // tiny — keeps worms roughly horizontal
+  // Curl field strength scales with energy — quiet passages get gentle drift,
+  // loud passages get aggressive swirling.
+  const curlGain = (260 + mid * 520 + bass * 320) * dpr;
+  for (const d of drips) {
+    // Spiral: rotate velocity vector by d.spin rad/sec
+    const cs = Math.cos(d.spin * dt);
+    const sn = Math.sin(d.spin * dt);
+    const nvx = d.vx * cs - d.vy * sn;
+    const nvy = d.vx * sn + d.vy * cs;
+    d.vx = nvx; d.vy = nvy;
+
+    // Curl-noise advection — the streak is pulled along a divergence-free
+    // vector field. This is what turns straight lasers into braided,
+    // swimming liquid currents. Each drip samples the field at its own
+    // position, so streaks near each other flow together (like ink in a
+    // slow current) but never collide or pile up.
+    const cf = curl(d.x, d.y, t + d.noiseSeed * 0.01);
+    d.vx += cf.x * curlGain * dt;
+    d.vy += cf.y * curlGain * dt;
+
+    // Sinusoidal vertical wobble — gives the horizontal streaks a gentle
+    // serpentine path even before spiral accumulates
+    d.vy += Math.sin(t * 2.4 + d.noiseSeed) * 180 * dt;
+    d.vy += GRAVITY * dt;
+    d.vx *= 0.997;
+
+    d.x += d.vx * dt * dpr;
+    d.y += d.vy * dt * dpr;
+    d.life -= dt * 0.11; // long life → long trails
+    if (d.life <= 0) continue;
+
+    d.history.push({ x: d.x, y: d.y });
+    if (d.history.length > TRAIL_LEN) d.history.shift();
+
+    // Render history as a neon laser: same polyline stroked TWICE —
+    // first as a wide soft glow halo, then as a thin bright core. This
+    // is the classic neon-laser aesthetic: the whole trail stays brightly
+    // colored along its length (only a slight tail falloff) rather than
+    // fading to black.
+    const h = d.history;
+    if (h.length < 2) continue;
+    const head = h[h.length - 1];
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    // Smooth the polyline with quadratic Bézier curves through midpoints of
+    // consecutive history samples — each segment's control point is the
+    // history vertex, endpoints are midpoints of the neighbours. This is
+    // the standard "chaikin-style" smoothing you see in drawing apps; it
+    // eliminates the visible kinks a raw lineTo chain shows on long trails.
+    ctx.moveTo(h[0].x, h[0].y);
+    for (let k = 1; k < h.length - 1; k++) {
+      const mx = (h[k].x + h[k + 1].x) * 0.5;
+      const my = (h[k].y + h[k + 1].y) * 0.5;
+      ctx.quadraticCurveTo(h[k].x, h[k].y, mx, my);
+    }
+    // Finish the curve at the actual head, preserving the tip position
+    const last = h[h.length - 1];
+    ctx.lineTo(last.x, last.y);
+
+    // Two-pass laser: soft neon halo + thin bright core (cheap at scale)
+    ctx.strokeStyle = hsla(d.hue, 100, 65, d.life * 0.35);
+    ctx.lineWidth = Math.max(1.4, d.r * dpr * 3.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = hsla(d.hue, 100, 88, d.life * 0.95);
+    ctx.lineWidth = Math.max(0.6, d.r * dpr * 0.9);
+    ctx.stroke();
+
+    // Tiny bright head dot (no gradient — cheap)
+    ctx.fillStyle = hsla(d.hue, 100, 90, d.life);
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, Math.max(0.8, d.r * dpr * 1.1), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Cull dead / far out-of-bounds worms
+  for (let i = drips.length - 1; i >= 0; i--) {
+    const d = drips[i];
+    const pad = 400 * dpr;
+    if (d.life <= 0 ||
+        d.x < rectX - pad || d.x > rectX + rectW + pad ||
+        d.y < rectY - pad || d.y > rectY + rectH + pad) {
+      drips.splice(i, 1);
+    }
+  }
+
+  if (mode === 'tiktok') ctx.restore();
+}
+
+// Idle pulse — also multicolor. Named so stopAudio() can resume it.
+// idleScheduled prevents two RAF chains running in parallel after a rapid
+// stop-start cycle (both chains would keep `idleScheduled` true, but the
+// tail of one would re-queue while the other is already queued).
+let idleScheduled = false;
+function idleFrame() {
+  idleScheduled = false;
+  // Exit if the reactive loop has taken over
+  if (started) return;
+  idleScheduled = true;
+  const t = performance.now() / 1000;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  let clipped = false;
+  if (mode === 'tiktok') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rectX, rectY, rectW, rectH);
+    ctx.clip();
+    clipped = true;
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(rectX, rectY, rectW, rectH);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    const a = t * (0.6 + i * 0.3) + i * 2.09;
+    const r = (90 + Math.sin(t * 1.1 + i) * 40) * DPR();
+    const x = drawCx + Math.cos(a) * 90 * DPR();
+    const y = drawCy + Math.sin(a) * 90 * DPR();
+    const hue = (t * 30 + i * 137.5) % 360;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+    g.addColorStop(0, `hsla(${hue}, 100%, 65%, 0.6)`);
+    g.addColorStop(1, `hsla(${hue}, 100%, 60%, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // Balance save/restore by tracking locally, not by reading mode again —
+  // user could have toggled TikTok mid-frame which would unbalance the stack.
+  if (clipped) ctx.restore();
+  idleScheduled = true;
+  requestAnimationFrame(idleFrame);
+}
+idleScheduled = true;
+requestAnimationFrame(idleFrame);
+</script>
+</body>
+</html>

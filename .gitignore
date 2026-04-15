@@ -142,3 +142,12 @@ vite.config.ts.timestamp-*
 .vite/
 
 .DS_Store
+
+# Chromium profile from visualizer/electron runs
+.chrome-profile/
+
+# Archives
+*.zip
+
+# Local Claude settings
+.claude/settings.local.json

@@ -8,6 +8,8 @@
     "dev": "concurrently --names server,electron --prefix-colors blue,green \"npm run server\" \"cross-env NODE_ENV=development electron .\"",
     "server": "node server/index.js",
     "server:dev": "node --watch server/index.js",
+    "review": "node scripts/code-improver.js",
+    "visualizer": "electron visualization/main.js",
     "setup": "bash setup.sh"
   },
   "dependencies": {

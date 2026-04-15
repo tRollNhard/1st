@@ -1,0 +1,54 @@
+{
+  "name": "neon-visualizer",
+  "version": "1.0.0",
+  "description": "Neon Visualizer — Spotify playback + TikTok 9:16 template export",
+  "main": "main.js",
+  "author": "Jason Clark",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis"
+  },
+  "keywords": ["visualizer", "spotify", "tiktok", "electron"],
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.jasonclark.neonvisualizer",
+    "productName": "Neon Visualizer",
+    "asar": true,
+    "files": [
+      "main.js",
+      "index.html",
+      "package.json",
+      "build/icon.ico",
+      "!.electron-data/**",
+      "!.chrome-profile/**",
+      "!dist/**"
+    ],
+    "compression": "maximum",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "NeonVisualizer-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Neon Visualizer"
+    }
+  }
+}
