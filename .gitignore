@@ -146,6 +146,16 @@ vite.config.ts.timestamp-*
 # Chromium profile from visualizer/electron runs
 .chrome-profile/
 
+# Electron runtime data
+.electron-data/
+
+# Spotify tokens and certs
+spotify-mcp/tokens.json
+spotify-mcp/.certs/
+
+# Scheduled task locks
+.claude/scheduled_tasks.lock
+
 # Archives
 *.zip
 

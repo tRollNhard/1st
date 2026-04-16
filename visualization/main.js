@@ -66,9 +66,12 @@ function createWindow() {
     },
   });
 
-  // Block the in-app devtools if a power user tries to open them in a
-  // packaged build — they shouldn't poke auto-granted media handlers.
-  if (app.isPackaged) {
+  // Auto-open DevTools in dev so renderer errors (black screen, audio init
+  // failures, CSP violations) are immediately visible in the console.
+  if (!app.isPackaged) {
+    win.webContents.openDevTools({ mode: 'detach' });
+  } else {
+    // Block the in-app devtools in packaged builds.
     win.webContents.on('devtools-opened', () => win.webContents.closeDevTools());
   }
 
@@ -93,7 +96,7 @@ function createWindow() {
   // telemetry, etc.). Only file://, data:, blob:, about: are allowed
   // through. The renderer's CSP already blocks fetch/XHR from the page;
   // this backstops the main process too.
-  const OFFLINE_ALLOW = /^(file|data|blob|about|chrome-extension):/i;
+  const OFFLINE_ALLOW = /^(file|data|blob|about|chrome-extension|devtools):/i;
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, cb) => {
     if (OFFLINE_ALLOW.test(details.url)) return cb({ cancel: false });
     console.log('[offline-block]', details.method, details.url);

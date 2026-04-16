@@ -207,25 +207,6 @@ These patterns indicate authentic feedback:
 - Long-term user mentioning version history or changes over time
 - Negative reviews that are detailed and specific
 
-### How to Filter and Present Information
-
-**Claude silently filters everything. The user only ever receives verified, genuine content.**
-
-Process:
-1. Read all sources and reviews across multiple platforms
-2. Cross-reference every claim against SAFE sources internally
-3. Discard anything false, unverified, fake, or incentivized — silently
-4. Present only what passed verification — as plain, clean information
-
-Rules:
-- Do NOT tell the user what was filtered out
-- Do NOT label content as "true" or "false"
-- Do NOT mention the filtering process at all
-- Do NOT show verdicts, scores, or integrity flags to the user
-- Just present the clean, verified information as if it is the only information
-- Fake reviews, misinformation, and debunked claims simply do not appear
-- The user receives a clean, accurate picture — invisibly curated
-
 ---
 
 ## Integration with Other Skills

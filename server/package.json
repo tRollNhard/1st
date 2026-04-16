@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "composio-core": "^0.5.39",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",

@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const { createProvider } = require('./providers');
 const { isConfigured: composioReady } = require('./composio');
+const spotifyMcpRouter = require('./spotify-mcp');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,6 +18,9 @@ const activeRequests = new Map();
 function abortKey(chatId, provider) {
   return `${chatId}:${provider}`;
 }
+
+// ── MCP ────────────────────────────────────────────────────────────────────
+app.use('/mcp', spotifyMcpRouter());
 
 // ── Routes ─────────────────────────────────────────────────────────────────
 
@@ -106,4 +110,5 @@ app.listen(PORT, () => {
   console.log(`[SERVER] Provider: claude`);
   console.log(`[SERVER] Anthropic key: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'MISSING'}`);
   console.log(`[SERVER] Composio key: ${process.env.COMPOSIO_API_KEY ? 'configured' : 'MISSING'}`);
+  console.log(`[SERVER] Spotify MCP: http://localhost:${PORT}/mcp (lazy-loaded on first use)`);
 });

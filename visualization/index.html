@@ -248,11 +248,24 @@ let audioSourceLabel = '';
 let silenceAccum = 0;
 let silenceWarned = false;
 
+// Recording state — declared here so resize() (called immediately below)
+// can safely check `recorder` without hitting the TDZ.
+let recorder = null, recChunks = [];
+let recStart = 0, recTimerHandle = 0;
+
 async function startWithStream(stream, label) {
   if (started) return;
   audioStream = stream;
   audioSourceLabel = label;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // AudioContext ties itself to the default OUTPUT device internally — if that
+  // device is in an error state (e.g. exclusive mode, hardware reset, no device),
+  // the constructor or resume() throws. Catch here so the caller can clean up.
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (err) {
+    const msg = (err && err.message) ? err.message : String(err);
+    throw new Error('AudioContext init failed (speaker output error): ' + msg);
+  }
   // Autoplay policy: contexts created outside a gesture can be 'suspended'.
   // We're inside a click handler, but resume defensively.
   if (audioCtx.state === 'suspended') {
@@ -354,12 +367,16 @@ async function startSystemAudio() {
   audioStarting = true;
   try {
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-    const audioTracks = stream.getAudioTracks();
+    // Only keep live tracks — a failed WASAPI loopback can return tracks that
+    // are already in 'ended' state rather than returning no tracks at all.
+    const audioTracks = stream.getAudioTracks().filter(t => t.readyState === 'live');
     if (audioTracks.length === 0) {
       alert(
-        'No audio captured.\n\n' +
-        'In Chrome app-mode: re-run and tick "Share tab audio" when picking the Spotify tab.\n' +
-        'In Electron: make sure something is actually playing on the Windows default output device.'
+        'No live audio captured.\n\n' +
+        'Possible causes:\n' +
+        '• Nothing is playing on the Windows default output device\n' +
+        '• Your audio device does not support loopback (try setting speakers as the default device)\n' +
+        '• The audio device is in exclusive mode (check Sound settings → Advanced)'
       );
       stream.getTracks().forEach(t => t.stop());
       return;
@@ -367,9 +384,14 @@ async function startSystemAudio() {
     stream.getVideoTracks().forEach(t => t.stop());
     await startWithStream(new MediaStream(audioTracks), 'system');
   } catch (err) {
-    // NotAllowedError is expected if user cancels the picker — don't alert
-    if (err && err.name !== 'NotAllowedError') {
-      alert('Could not capture system audio: ' + (err.message || err));
+    // Clean up any partial state — if startWithStream threw after setting
+    // audioStream, the tracks would never be stopped otherwise.
+    if (audioStream && !started) stopAudio();
+    if (err && err.name === 'NotAllowedError') {
+      // Happens when the Electron handler rejects or user dismisses any picker
+      setStatus('Permission denied — could not capture system audio');
+    } else {
+      alert('Could not capture system audio: ' + (err && err.message ? err.message : err));
     }
   } finally {
     audioStarting = false;
@@ -432,8 +454,6 @@ document.getElementById('btn-camera').addEventListener('click', toggleCamera);
 // ──────────────────────────────────────────────────────────────────────────
 // Recording
 // ──────────────────────────────────────────────────────────────────────────
-let recorder = null, recChunks = [];
-let recStart = 0, recTimerHandle = 0;
 function fmtTime(ms) {
   const s = Math.floor(ms / 1000);
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
