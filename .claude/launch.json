@@ -26,7 +26,7 @@
       "port": null
     },
     {
-      "name": "Neon Visualizer",
+      "name": "Smillee",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "4500", "--directory", "visualization"],
       "port": 4500
