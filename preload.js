@@ -114,5 +114,55 @@ contextBridge.exposeInMainWorld('electronAPI', {
       console.error('[PRELOAD] Error fetching providers:', error);
       return { providers: ['claude'], default: 'claude' };
     }
-  }
+  },
+
+  // ── Automation ──────────────────────────────────────────────────────────────
+
+  automationStatus: async () => {
+    const r = await fetch(`${SERVER_URL}/api/automation/status`);
+    return r.json();
+  },
+
+  automationStart: async (config = {}) => {
+    const r = await fetch(`${SERVER_URL}/api/automation/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return r.json();
+  },
+
+  automationStop: async () => {
+    const r = await fetch(`${SERVER_URL}/api/automation/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    return r.json();
+  },
+
+  automationConfigure: async (config) => {
+    const r = await fetch(`${SERVER_URL}/api/automation/configure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return r.json();
+  },
+
+  // ── Settings ────────────────────────────────────────────────────────────────
+
+  settingsStatus: async () => {
+    const r = await fetch(`${SERVER_URL}/api/settings/status`);
+    return r.json();
+  },
+
+  settingsSaveKeys: async ({ anthropicKey, composioKey }) => {
+    const r = await fetch(`${SERVER_URL}/api/settings/keys`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anthropicKey, composioKey }),
+    });
+    return r.json();
+  },
 });

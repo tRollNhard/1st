@@ -10,15 +10,28 @@
 </head>
 <body>
   <div id="app">
+
     <!-- Sidebar -->
     <aside id="sidebar">
       <div class="sidebar-header">
         <h1>Cowork</h1>
-        <button id="new-chat-btn" title="New chat">+</button>
+        <button id="new-chat-btn" title="New chat" aria-label="New chat">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
-      <div id="chat-list"></div>
+
+      <!-- View tabs -->
+      <div class="view-tabs" role="tablist">
+        <button class="view-tab active" data-view="chat" role="tab" aria-selected="true">Chat</button>
+        <button class="view-tab" data-view="automation" role="tab" aria-selected="false">Social</button>
+        <button class="view-tab" data-view="settings" role="tab" aria-selected="false">Keys</button>
+      </div>
+
+      <div id="chat-list" role="list" aria-label="Chat history"></div>
       <div class="sidebar-footer">
-        <select id="model-select">
+        <select id="model-select" aria-label="Select model">
           <option value="claude-sonnet-4-6-20250620">Sonnet 4.6</option>
           <option value="claude-opus-4-6-20250620">Opus 4.6</option>
           <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
@@ -28,13 +41,190 @@
 
     <!-- Main chat area -->
     <main id="chat-area">
-      <div id="messages"></div>
+
+      <!-- Empty state (shown when chat has no messages) -->
+      <div id="empty-state">
+        <svg class="empty-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M7 8h26a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H22l-5 4v-4H7a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"
+            stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <p>Start a new conversation</p>
+      </div>
+
+      <!-- Messages -->
+      <div id="messages" class="hidden" role="log" aria-live="polite" aria-label="Conversation"></div>
+
+      <!-- Typing indicator (shown while Claude is responding) -->
+      <div id="typing-indicator" class="hidden" aria-label="Claude is typing" aria-live="polite">
+        <span></span><span></span><span></span>
+      </div>
+
+      <!-- Input bar -->
       <div id="input-bar">
-        <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
-        <button id="send-btn" title="Send">Send</button>
-        <button id="stop-btn" title="Stop" class="hidden">Stop</button>
+        <textarea
+          id="message-input"
+          placeholder="Message Claude…"
+          rows="1"
+          aria-label="Message input"
+        ></textarea>
+        <button id="send-btn" title="Send message" aria-label="Send message">Send</button>
+        <button id="stop-btn" title="Stop generation" aria-label="Stop generation" class="hidden">Stop</button>
+      </div>
+
+    </main>
+    <!-- Settings panel (hidden by default) -->
+    <main id="settings-area" class="hidden">
+      <div id="settings-header">
+        <h2>API Keys</h2>
+        <p class="settings-subtitle">Keys are saved to your local <code>.env</code> file and applied instantly — no restart needed.</p>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-key-row">
+          <div class="settings-key-label">
+            <span class="key-name">Anthropic</span>
+            <span id="anthropic-status-dot" class="status-dot dot-unknown"></span>
+          </div>
+          <div class="settings-key-input-row">
+            <input id="anthropic-key-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
+            <button class="key-toggle-btn" data-target="anthropic-key-input">Show</button>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-key-row">
+          <div class="settings-key-label">
+            <span class="key-name">Composio</span>
+            <span id="composio-status-dot" class="status-dot dot-unknown"></span>
+          </div>
+          <div class="settings-key-input-row">
+            <input id="composio-key-input" type="password" placeholder="your-composio-api-key" autocomplete="off" spellcheck="false" />
+            <button class="key-toggle-btn" data-target="composio-key-input">Show</button>
+          </div>
+          <p class="key-hint">Used by the Social automation to post to X, Instagram &amp; Facebook.</p>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button id="settings-save-btn" class="btn-primary">Save Keys</button>
+        <span id="settings-save-msg" class="settings-msg hidden"></span>
       </div>
     </main>
+
+    <!-- Automation panel (hidden by default) -->
+    <main id="automation-area" class="hidden">
+
+      <div id="automation-header">
+        <div id="automation-title">
+          <h2>Social Media Automation</h2>
+          <span id="auto-status-badge" class="badge badge-stopped">Stopped</span>
+          <span id="auto-dryrun-badge" class="badge badge-dryrun hidden">Dry Run</span>
+        </div>
+        <div id="automation-controls">
+          <button id="auto-start-btn" class="btn-primary">Start</button>
+          <button id="auto-stop-btn" class="btn-danger hidden">Stop</button>
+        </div>
+      </div>
+
+      <!-- Pipeline diagram -->
+      <div id="pipeline-diagram">
+        <div class="pipe-node pipe-rss">
+          <div class="pipe-icon">RSS</div>
+          <div class="pipe-label">RSS Feed</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node pipe-claude">
+          <div class="pipe-icon">C</div>
+          <div class="pipe-label">Claude<br>Summarize</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node pipe-router">
+          <div class="pipe-icon">⇉</div>
+          <div class="pipe-label">Router</div>
+        </div>
+        <div class="pipe-branches">
+          <div class="pipe-branch">
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-write">
+              <div class="pipe-icon">C</div>
+              <div class="pipe-label">Write<br>Tweet</div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-social" data-platform="twitter">
+              <div class="pipe-icon">𝕏</div>
+              <div class="pipe-label">Post to X</div>
+            </div>
+          </div>
+          <div class="pipe-branch">
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-write">
+              <div class="pipe-icon">C</div>
+              <div class="pipe-label">Write<br>Caption</div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-write">
+              <div class="pipe-icon">C</div>
+              <div class="pipe-label">Image<br>Prompt</div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-social" data-platform="instagram">
+              <div class="pipe-icon">IG</div>
+              <div class="pipe-label">Post to IG</div>
+            </div>
+          </div>
+          <div class="pipe-branch">
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-write">
+              <div class="pipe-icon">C</div>
+              <div class="pipe-label">Write<br>FB Post</div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node pipe-social" data-platform="facebook">
+              <div class="pipe-icon">f</div>
+              <div class="pipe-label">Post to FB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Config -->
+      <div id="automation-config">
+        <h3>Configuration</h3>
+        <div class="config-row">
+          <label for="rss-url-input">RSS Feed URL</label>
+          <input id="rss-url-input" type="url" placeholder="https://news.google.com/rss/search?q=AI+tools…" />
+        </div>
+        <div class="config-row">
+          <label for="interval-select">Poll Interval</label>
+          <select id="interval-select">
+            <option value="300000">5 minutes</option>
+            <option value="900000">15 minutes</option>
+            <option value="1800000" selected>30 minutes</option>
+            <option value="3600000">1 hour</option>
+          </select>
+        </div>
+        <div class="config-row">
+          <label>Platforms</label>
+          <div class="platform-checkboxes">
+            <label><input type="checkbox" value="twitter" checked> X / Twitter</label>
+            <label><input type="checkbox" value="instagram" checked> Instagram</label>
+            <label><input type="checkbox" value="facebook" checked> Facebook</label>
+          </div>
+        </div>
+        <button id="auto-save-config-btn" class="btn-secondary">Save Config</button>
+      </div>
+
+      <!-- Job feed -->
+      <div id="automation-feed">
+        <h3>Activity Feed</h3>
+        <div id="job-list">
+          <p class="feed-empty">No jobs yet. Start the automation to begin.</p>
+        </div>
+      </div>
+
+    </main>
+
   </div>
   <script src="app.js"></script>
 </body>

@@ -2,9 +2,33 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const { createProvider } = require('./providers');
-const { isConfigured: composioReady } = require('./composio');
+const { isConfigured: composioReady, reset: composioReset } = require('./composio');
 const spotifyMcpRouter = require('./spotify-mcp');
+const automation = require('./automation');
+
+const ENV_PATH = path.join(__dirname, '..', '.env');
+
+// ── .env helpers ────────────────────────────────────────────────────────────
+
+function readEnv() {
+  try { return fs.readFileSync(ENV_PATH, 'utf-8'); } catch { return ''; }
+}
+
+function writeEnvKey(key, value) {
+  let content = readEnv();
+  const re = new RegExp(`^(${key}=.*)$`, 'm');
+  const line = `${key}=${value}`;
+  if (re.test(content)) {
+    content = content.replace(re, line);
+  } else {
+    content = content.trimEnd() + `\n${line}\n`;
+  }
+  fs.writeFileSync(ENV_PATH, content, 'utf-8');
+  process.env[key] = value;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -81,6 +105,69 @@ app.post('/api/chat', async (req, res) => {
     activeRequests.delete(abortKey(chatId, provider));
     res.end();
   }
+});
+
+// ── Settings routes ─────────────────────────────────────────────────────────
+
+// GET /api/settings/status — which keys are set
+app.get('/api/settings/status', (req, res) => {
+  const anthKey = process.env.ANTHROPIC_API_KEY;
+  const compKey = process.env.COMPOSIO_API_KEY;
+  res.json({
+    anthropic: Boolean(anthKey && anthKey !== 'your-api-key-here'),
+    composio:  composioReady(),
+  });
+});
+
+// POST /api/settings/keys — save one or both keys to .env + live-patch process.env
+app.post('/api/settings/keys', (req, res) => {
+  const { anthropicKey, composioKey } = req.body;
+  const updated = [];
+
+  if (anthropicKey && anthropicKey.trim()) {
+    writeEnvKey('ANTHROPIC_API_KEY', anthropicKey.trim());
+    updated.push('ANTHROPIC_API_KEY');
+  }
+  if (composioKey && composioKey.trim()) {
+    writeEnvKey('COMPOSIO_API_KEY', composioKey.trim());
+    composioReset(); // clear cached Composio client so it re-initialises with new key
+    updated.push('COMPOSIO_API_KEY');
+  }
+
+  const anthKey = process.env.ANTHROPIC_API_KEY;
+  const compKey = process.env.COMPOSIO_API_KEY;
+  res.json({
+    ok: true,
+    updated,
+    status: {
+      anthropic: Boolean(anthKey && anthKey !== 'your-api-key-here'),
+      composio:  composioReady(),
+    },
+  });
+});
+
+// ── Automation routes ───────────────────────────────────────────────────────
+
+// GET /api/automation/status
+app.get('/api/automation/status', (req, res) => {
+  res.json(automation.getStatus());
+});
+
+// POST /api/automation/start
+app.post('/api/automation/start', (req, res) => {
+  const result = automation.start(req.body || {});
+  res.json(result);
+});
+
+// POST /api/automation/stop
+app.post('/api/automation/stop', (req, res) => {
+  res.json(automation.stop());
+});
+
+// POST /api/automation/configure
+app.post('/api/automation/configure', (req, res) => {
+  automation.configure(req.body || {});
+  res.json({ ok: true, config: automation.getStatus().config });
 });
 
 // POST /api/abort — cancel an in-progress request

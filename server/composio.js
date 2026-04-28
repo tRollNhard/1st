@@ -69,4 +69,10 @@ function isConfigured() {
   return Boolean(key && key !== 'your-composio-api-key-here');
 }
 
-module.exports = { getTools, executeTool, isConfigured };
+function reset() {
+  client = null;
+  toolset = null;
+  cachedTools = null;
+}
+
+module.exports = { getTools, executeTool, isConfigured, reset };

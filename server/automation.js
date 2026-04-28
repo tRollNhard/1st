@@ -1,0 +1,253 @@
+const Anthropic = require('@anthropic-ai/sdk');
+const https = require('https');
+const http = require('http');
+const { executeTool, isConfigured: composioConfigured } = require('./composio');
+
+// ── RSS utilities ─────────────────────────────────────────────────────────────
+
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith('https') ? https : http;
+    const req = proto.get(url, { headers: { 'User-Agent': 'OpenClaudeCowork/1.0' } }, (res) => {
+      // Follow redirects (302 etc.)
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => (data += chunk));
+      res.on('end', () => resolve(data));
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('RSS fetch timeout')); });
+  });
+}
+
+function extractTag(xml, tag) {
+  const re = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i');
+  const m = re.exec(xml);
+  return m ? m[1].replace(/<[^>]*>/g, '').trim() : '';
+}
+
+function parseRss(xml) {
+  const items = [];
+  const re = /<item>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = re.exec(xml)) !== null) {
+    const b = m[1];
+    const link = extractTag(b, 'link') || extractTag(b, 'url');
+    items.push({
+      title:       extractTag(b, 'title'),
+      link,
+      description: extractTag(b, 'description') || extractTag(b, 'summary'),
+      pubDate:     extractTag(b, 'pubDate') || extractTag(b, 'published'),
+      guid:        extractTag(b, 'guid') || link,
+    });
+  }
+  return items;
+}
+
+// ── Claude helpers ────────────────────────────────────────────────────────────
+
+async function claudeComplete(client, prompt, maxTokens = 400) {
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return msg.content[0].text.trim();
+}
+
+async function summarize(client, item) {
+  return claudeComplete(client,
+    `Summarize this AI/tech news in 2–3 punchy sentences. Focus on what's new and why it matters.\n\nTitle: ${item.title}\nDescription: ${item.description}\nURL: ${item.link}\n\nReturn only the summary.`,
+    300
+  );
+}
+
+async function writeForPlatform(client, platform, summary, item) {
+  const prompts = {
+    twitter: `Write a tweet about this AI news. Max 260 chars. Punchy, no filler. Add 2–3 hashtags like #AI #AItools.\n\nNews: ${summary}\n\nReturn only the tweet.`,
+    instagram: `Write an Instagram caption for this AI news. Engaging with line breaks. Add 6–8 hashtags at the end.\n\nNews: ${summary}\n\nReturn only the caption.`,
+    facebook: `Write a Facebook post about this AI news. Conversational, 2–3 paragraphs. Include the link: ${item.link}\n\nNews: ${summary}\n\nReturn only the post.`,
+  };
+  return claudeComplete(client, prompts[platform], 600);
+}
+
+async function generateImagePrompt(client, summary) {
+  return claudeComplete(client,
+    `Write a concise DALL-E prompt for an Instagram post about this AI news. Visually striking, modern, max 80 words.\n\n${summary}\n\nReturn only the prompt.`,
+    150
+  );
+}
+
+// ── Composio posting ──────────────────────────────────────────────────────────
+
+const PLATFORM_ACTIONS = {
+  twitter:   ['TWITTER_CREATE_TWEET', 'TWITTER_POST_TWEET'],
+  facebook:  ['FACEBOOK_PAGES_CREATE_POST', 'FACEBOOK_CREATE_POST'],
+  instagram: ['INSTAGRAM_CREATE_PHOTO_POST', 'INSTAGRAM_POST'],
+};
+
+const PLATFORM_INPUT = (platform, content, imagePrompt) => ({
+  twitter:   { text: content },
+  facebook:  { message: content },
+  instagram: { caption: content, ...(imagePrompt ? { image_prompt: imagePrompt } : {}) },
+}[platform]);
+
+async function postToSocial(platform, content, imagePrompt) {
+  if (!composioConfigured()) {
+    return { dryRun: true, platform, content };
+  }
+  for (const action of (PLATFORM_ACTIONS[platform] || [])) {
+    try {
+      const result = await executeTool(action, PLATFORM_INPUT(platform, content, imagePrompt));
+      if (!result?.error) return { success: true, platform, action };
+    } catch {}
+  }
+  return { error: `No working Composio action found for ${platform}`, platform };
+}
+
+// ── Automation engine ─────────────────────────────────────────────────────────
+
+class SocialAutomation {
+  constructor() {
+    this.client = new Anthropic();
+    this.isRunning = false;
+    this.intervalId = null;
+    this.jobHistory = [];        // newest first, capped at 100
+    this.processedGuids = new Set();
+    this.config = {
+      rssUrl: 'https://news.google.com/rss/search?q=AI+tools+news&hl=en-US&gl=US&ceid=US:en',
+      pollIntervalMs: 30 * 60 * 1000,  // 30 min
+      platforms: ['twitter', 'facebook', 'instagram'],
+      maxItemsPerCycle: 3,
+    };
+  }
+
+  configure(updates = {}) {
+    if (updates.rssUrl)         this.config.rssUrl = updates.rssUrl;
+    if (updates.pollIntervalMs) this.config.pollIntervalMs = Number(updates.pollIntervalMs);
+    if (Array.isArray(updates.platforms)) this.config.platforms = updates.platforms;
+    if (updates.maxItemsPerCycle) this.config.maxItemsPerCycle = Number(updates.maxItemsPerCycle);
+  }
+
+  _addJob(job) {
+    this.jobHistory.unshift(job);
+    if (this.jobHistory.length > 100) this.jobHistory.pop();
+  }
+
+  async processItem(item) {
+    if (this.processedGuids.has(item.guid)) return null;
+    this.processedGuids.add(item.guid);
+
+    const job = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: item.title,
+      link: item.link,
+      startedAt: new Date().toISOString(),
+      status: 'running',
+      summary: null,
+      platforms: {},
+    };
+    this._addJob(job);
+    console.log(`[AUTOMATION] Processing: ${item.title}`);
+
+    try {
+      job.summary = await summarize(this.client, item);
+
+      await Promise.all(this.config.platforms.map(async (platform) => {
+        try {
+          const content = await writeForPlatform(this.client, platform, job.summary, item);
+          const imagePrompt = platform === 'instagram'
+            ? await generateImagePrompt(this.client, job.summary)
+            : null;
+          const result = await postToSocial(platform, content, imagePrompt);
+          job.platforms[platform] = {
+            content,
+            ...(imagePrompt ? { imagePrompt } : {}),
+            result,
+            status: result.error ? 'error' : (result.dryRun ? 'dry-run' : 'posted'),
+          };
+        } catch (err) {
+          job.platforms[platform] = { status: 'error', error: err.message };
+        }
+      }));
+
+      job.status = 'done';
+    } catch (err) {
+      job.status = 'error';
+      job.error = err.message;
+      console.error(`[AUTOMATION] Error processing item:`, err.message);
+    }
+
+    return job;
+  }
+
+  async runCycle() {
+    console.log('[AUTOMATION] Running cycle…');
+    const cycleJob = {
+      id: `cycle-${Date.now()}`,
+      type: 'cycle',
+      startedAt: new Date().toISOString(),
+      status: 'running',
+      itemsFound: 0,
+      itemsProcessed: 0,
+    };
+    this._addJob(cycleJob);
+
+    try {
+      const xml = await fetchUrl(this.config.rssUrl);
+      const items = parseRss(xml);
+      cycleJob.itemsFound = items.length;
+
+      const newItems = items.filter(it => it.guid && !this.processedGuids.has(it.guid));
+      const batch = newItems.slice(0, this.config.maxItemsPerCycle);
+
+      for (const item of batch) {
+        if (!this.isRunning) break;
+        await this.processItem(item);
+        cycleJob.itemsProcessed++;
+      }
+
+      cycleJob.status = 'done';
+      console.log(`[AUTOMATION] Cycle done. Found ${items.length}, processed ${cycleJob.itemsProcessed} new.`);
+    } catch (err) {
+      cycleJob.status = 'error';
+      cycleJob.error = err.message;
+      console.error('[AUTOMATION] Cycle failed:', err.message);
+    }
+  }
+
+  start(config = {}) {
+    if (this.isRunning) return { ok: false, message: 'Already running' };
+    this.configure(config);
+    this.isRunning = true;
+
+    this.runCycle(); // run immediately
+    this.intervalId = setInterval(() => this.runCycle(), this.config.pollIntervalMs);
+
+    const dryRun = !composioConfigured();
+    console.log(`[AUTOMATION] Started. Dry-run: ${dryRun}. Interval: ${this.config.pollIntervalMs / 60000} min.`);
+    return { ok: true, message: 'Automation started', dryRun, config: this.config };
+  }
+
+  stop() {
+    if (!this.isRunning) return { ok: false, message: 'Not running' };
+    clearInterval(this.intervalId);
+    this.intervalId = null;
+    this.isRunning = false;
+    console.log('[AUTOMATION] Stopped.');
+    return { ok: true, message: 'Automation stopped' };
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      dryRun: !composioConfigured(),
+      config: this.config,
+      jobHistory: this.jobHistory,
+    };
+  }
+}
+
+module.exports = new SocialAutomation();
