@@ -1,0 +1,63 @@
+================================================================
+ COPYRIGHT NOTICE
+================================================================
+
+Smillee
+A music-reactive desktop visualizer (microphone + system audio)
+Character design, audio engine, and visual effects by the author.
+
+Copyright (c) 2026 Jason W Clark (THATdudeAGAIN)
+All rights reserved.
+
+Contact: jwclarkladymae@gmail.com
+GitHub:  https://github.com/THATdudeAGAIN
+
+----------------------------------------------------------------
+ PROPRIETARY SOFTWARE — ALL RIGHTS RESERVED
+----------------------------------------------------------------
+
+This software and its accompanying source files, assets, and
+character design (collectively, the "Work"), including but not
+limited to:
+
+  - visualization/index.html     (Smillee renderer + audio engine)
+  - visualization/main.js        (Electron host process)
+  - visualization/package.json
+  - visualization/build/         (icons and build resources)
+  - The name and mark "Smillee"
+  - The Smillee character design (rainbow glow face, pixel smile,
+    fuzzy body, eye design, beat-reactive animations)
+
+are the exclusive intellectual property of Jason W Clark.
+
+No part of this Work may be:
+  - Copied, reproduced, or stored in any retrieval system
+  - Distributed, published, or made publicly available
+  - Sublicensed, sold, rented, or leased
+  - Modified, merged into other software, or used as a base
+  - Reverse-engineered, decompiled, or disassembled
+  - Publicly displayed or performed
+
+...without the express prior written permission of the author.
+
+The Smillee character design (visual appearance, color palette,
+pixel smile, fuzzy body aesthetic) is an original creative work
+protected under copyright and may not be reproduced or imitated
+in any medium without written permission.
+
+----------------------------------------------------------------
+ THIRD-PARTY COMPONENTS
+----------------------------------------------------------------
+
+Third-party components bundled with or referenced by this Work —
+including Electron, Node.js, and any open-source npm dependencies
+— remain subject to their respective original licenses and are
+NOT covered by this copyright notice.
+
+----------------------------------------------------------------
+ DATED
+----------------------------------------------------------------
+
+First public assertion of authorship: April 19, 2026
+
+================================================================

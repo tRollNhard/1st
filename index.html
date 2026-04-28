@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';" />
+<title>SMILee</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #000; overflow: hidden;
+    font-family: -apple-system, Segoe UI, Inter, sans-serif;
+    color: #eee;
+  }
+  canvas#c { display: block; position: fixed; inset: 0; }
+
+  #panel {
+    position: fixed; top: 16px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 10, 20, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 12px 16px; border-radius: 14px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    z-index: 10; transition: opacity 0.6s;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    max-width: 92vw;
+  }
+  #panel.hide { opacity: 0; pointer-events: none; }
+
+  button {
+    background: linear-gradient(135deg, #ff00e5, #00f0ff, #f0ff00);
+    color: #000; font-weight: 700; border: none;
+    padding: 10px 14px; border-radius: 10px;
+    cursor: pointer; font-size: 13px;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(255, 0, 229, 0.5); }
+  button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  button.ghost { background: transparent; color: #ccc; border: 1px solid rgba(255,255,255,0.22); }
+  button.ghost:hover { box-shadow: 0 0 16px rgba(0, 240, 255, 0.25); }
+  button.active { outline: 2px solid #fff; outline-offset: 2px; }
+  button[disabled] { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .sep { width: 1px; height: 22px; background: rgba(255,255,255,0.18); margin: 0 4px; }
+  #hint { font-size: 11px; opacity: 0.7; }
+
+  #status {
+    position: fixed; bottom: 12px; left: 14px;
+    font-size: 11px; opacity: 0.7; letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums; z-index: 10;
+  }
+
+  /* Audio level meter — proves audio is reaching the analyser */
+  #meter {
+    position: fixed; bottom: 12px; right: 14px; z-index: 10;
+    display: flex; gap: 4px; align-items: flex-end;
+    height: 36px; padding: 4px 8px;
+    background: rgba(10,10,20,0.55);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    font-size: 10px; color: #aaa;
+  }
+  #meter .bar {
+    width: 6px; background: linear-gradient(to top, #00f0ff, #ff00e5);
+    border-radius: 2px; transition: height 0.04s linear;
+    min-height: 2px;
+  }
+  #meter .label { margin-right: 6px; opacity: 0.7; }
+
+  /* TikTok mode: centered 9:16 letterbox */
+  body.tiktok #frame {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 5;
+  }
+  body.tiktok #frame .box {
+    width: calc(min(100vh * 9 / 16, 100vw));
+    height: calc(min(100vh, 100vw * 16 / 9));
+    outline: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
+  }
+  #frame { display: none; }
+  body.tiktok #frame { display: flex; }
+
+  #rec-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #ff2d2d; display: none;
+    box-shadow: 0 0 10px rgba(255,45,45,0.8);
+    animation: pulse 1s infinite;
+  }
+  body.recording #rec-dot { display: inline-block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="frame"><div class="box"></div></div>
+
+<div id="panel">
+  <button id="btn-spotify" class="active" aria-label="Spotify fullscreen mode" aria-pressed="true">Spotify Mode</button>
+  <button id="btn-tiktok" class="ghost" aria-label="TikTok 9 by 16 vertical mode" aria-pressed="false">TikTok 9:16</button>
+  <div class="sep"></div>
+  <button id="btn-mic" class="ghost" aria-label="Microphone input" aria-pressed="false">🎤 Microphone</button>
+  <button id="btn-sys" aria-label="System audio input (Spotify loopback)" aria-pressed="false">🔊 System Audio</button>
+  <button id="btn-stop" class="ghost" disabled aria-label="Stop audio input">Stop Audio</button>
+  <div class="sep"></div>
+  <button id="btn-camera" class="ghost" aria-label="Toggle webcam background" aria-pressed="false">Camera</button>
+  <button id="btn-record" class="ghost" disabled aria-label="Record TikTok video">● Record</button>
+  <span id="rec-dot" aria-hidden="true"></span>
+  <span id="rec-time" aria-live="polite"></span>
+  <span id="hint">F11 fullscreen · Click canvas to hide controls · Esc reshow · R record</span>
+</div>
+
+<div id="status" role="status" aria-live="polite">idle — pick Microphone (ambient) or System Audio (Spotify on Windows default output)</div>
+<div id="meter">
+  <span class="label">IN</span>
+  <div class="bar" id="bar-bass"></div>
+  <div class="bar" id="bar-mid"></div>
+  <div class="bar" id="bar-high"></div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────────
+// Mode
+// ──────────────────────────────────────────────────────────────────────────
+let mode = 'spotify';
+function setMode(next) {
+  // Changing canvas dimensions mid-recording breaks the captured stream
+  // (many players reject resolution changes). Block the switch while active.
+  if (recorder && recorder.state === 'recording') {
+    setStatus('Stop recording before switching modes');
+    return;
+  }
+  mode = next;
+  document.body.classList.toggle('tiktok', mode === 'tiktok');
+  const spot = document.getElementById('btn-spotify');
+  const tik = document.getElementById('btn-tiktok');
+  spot.classList.toggle('active', mode === 'spotify');
+  spot.classList.toggle('ghost',  mode !== 'spotify');
+  spot.setAttribute('aria-pressed', String(mode === 'spotify'));
+  tik.classList.toggle('active', mode === 'tiktok');
+  tik.classList.toggle('ghost',  mode !== 'tiktok');
+  tik.setAttribute('aria-pressed', String(mode === 'tiktok'));
+  document.getElementById('btn-record').disabled = (mode !== 'tiktok') || !started;
+  // Leaving TikTok mode — turn off the webcam so the LED / privacy indicator
+  // doesn't linger. Camera is a TikTok-template feature; irrelevant in Spotify.
+  if (mode !== 'tiktok' && cameraStream) toggleCamera();
+  resize();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Canvas + draw region
+// ──────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+let rectX, rectY, rectW, rectH, drawCx, drawCy;
+
+function resize() {
+  // Don't change canvas dimensions mid-recording — MediaRecorder producers
+  // that change resolution produce broken/unplayable WebM segments.
+  if (recorder && recorder.state === 'recording') return;
+  const dpr = devicePixelRatio || 1;
+  W = canvas.width = window.innerWidth * dpr;
+  H = canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+
+  if (mode === 'tiktok') {
+    const availW = window.innerWidth, availH = window.innerHeight;
+    const vw = Math.min(availH * 9 / 16, availW);
+    const vh = vw * 16 / 9;
+    rectW = vw * dpr; rectH = vh * dpr;
+    rectX = (W - rectW) / 2; rectY = (H - rectH) / 2;
+  } else {
+    rectX = 0; rectY = 0; rectW = W; rectH = H;
+  }
+  drawCx = rectX + rectW / 2;
+  drawCy = rectY + rectH / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ──────────────────────────────────────────────────────────────────────────
+// Audio
+// ──────────────────────────────────────────────────────────────────────────
+let audioCtx, analyser, freq;
+let audioSourceNode = null;
+let started = false;
+let audioStream = null;
+let audioStarting = false; // in-flight guard to prevent double-prompts
+let audioSourceLabel = '';
+let silenceAccum = 0;
+let silenceWarned = false;
+
+async function startWithStream(stream, label) {
+  if (started) return;
+  audioStream = stream;
+  audioSourceLabel = label;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Autoplay policy: contexts created outside a gesture can be 'suspended'.
+  // We're inside a click handler, but resume defensively.
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch (_) {}
+  }
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  // Low smoothing = sharp transients survive, giving clean beat detection
+  analyser.smoothingTimeConstant = 0.4;
+  freq = new Uint8Array(analyser.frequencyBinCount);
+  audioSourceNode = audioCtx.createMediaStreamSource(stream);
+  audioSourceNode.connect(analyser);
+
+  // If the upstream audio track ends (device switch, tab close, Spotify
+  // quit), fall back cleanly instead of silently feeding zeros forever.
+  stream.getAudioTracks().forEach(t => {
+    t.addEventListener('ended', () => {
+      if (!started) return;
+      setStatus('audio track ended — click Microphone or System Audio to resume');
+      stopAudio();
+    });
+  });
+
+  started = true;
+  setStatus(`listening · ${label}`);
+  document.getElementById('btn-mic').disabled = true;
+  document.getElementById('btn-sys').disabled = true;
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('btn-mic').classList.toggle('active', label === 'mic');
+  document.getElementById('btn-sys').classList.toggle('active', label === 'system');
+  document.getElementById('btn-record').disabled = (mode !== 'tiktok');
+  requestAnimationFrame(frame);
+}
+
+function stopAudio() {
+  // If we're mid-record, stop that first so the webm closes cleanly.
+  if (recorder && recorder.state === 'recording') stopRecording();
+  if (audioStream) {
+    audioStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
+    audioStream = null;
+  }
+  if (audioSourceNode) {
+    try { audioSourceNode.disconnect(); } catch (_) {}
+    audioSourceNode = null;
+  }
+  if (audioCtx) {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
+  }
+  analyser = null;
+  started = false;
+  silenceAccum = 0;
+  silenceWarned = false;
+  document.getElementById('btn-mic').disabled = false;
+  document.getElementById('btn-sys').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-mic').classList.remove('active');
+  document.getElementById('btn-mic').classList.add('ghost');
+  document.getElementById('btn-sys').classList.remove('active');
+  document.getElementById('btn-sys').classList.add('ghost');
+  document.getElementById('btn-record').disabled = true;
+  setStatus('stopped — pick Microphone or System Audio to resume');
+  // Re-enter the idle animation (guarded so we never schedule twice)
+  if (!idleScheduled) { idleScheduled = true; requestAnimationFrame(idleFrame); }
+}
+
+async function startMic() {
+  if (audioStarting) return;
+  // If already running from a different source, stop-then-restart so users
+  // can switch Mic ↔ System Audio without clicking Stop first.
+  if (started && audioSourceLabel !== 'mic') stopAudio();
+  if (started) return;
+  audioStarting = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        // Keep loud transients intact — autoGain/noiseSuppression would
+        // flatten beats and kill the reactive feel.
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+      video: false,
+    });
+    await startWithStream(stream, 'mic');
+  } catch (err) {
+    alert('Could not access microphone: ' + (err && err.message ? err.message : err));
+  } finally {
+    audioStarting = false;
+  }
+}
+
+async function startSystemAudio() {
+  if (audioStarting) return;
+  // Symmetric switch-source path — clicking System while Mic is active
+  // stops mic and restarts as system audio in one click.
+  if (started && audioSourceLabel !== 'system') stopAudio();
+  if (started) return;
+  audioStarting = true;
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      alert(
+        'No audio captured.\n\n' +
+        'In Chrome app-mode: re-run and tick "Share tab audio" when picking the Spotify tab.\n' +
+        'In Electron: make sure something is actually playing on the Windows default output device.'
+      );
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+    stream.getVideoTracks().forEach(t => t.stop());
+    await startWithStream(new MediaStream(audioTracks), 'system');
+  } catch (err) {
+    // NotAllowedError is expected if user cancels the picker — don't alert
+    if (err && err.name !== 'NotAllowedError') {
+      alert('Could not capture system audio: ' + (err.message || err));
+    }
+  } finally {
+    audioStarting = false;
+  }
+}
+
+document.getElementById('btn-mic').addEventListener('click', startMic);
+document.getElementById('btn-sys').addEventListener('click', startSystemAudio);
+document.getElementById('btn-stop').addEventListener('click', stopAudio);
+document.getElementById('btn-spotify').addEventListener('click', () => setMode('spotify'));
+document.getElementById('btn-tiktok').addEventListener('click',  () => setMode('tiktok'));
+
+// ──────────────────────────────────────────────────────────────────────────
+// Camera — live webcam feed as background layer (face + laser overlay is the
+// TikTok-template look). Drawn first each frame, then visualizer on top.
+// ──────────────────────────────────────────────────────────────────────────
+let cameraEl = null;
+let cameraStream = null;
+async function toggleCamera() {
+  const btn = document.getElementById('btn-camera');
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+    if (cameraEl) { cameraEl.srcObject = null; cameraEl = null; }
+    btn.textContent = 'Camera';
+    btn.classList.add('ghost');
+    btn.classList.remove('active');
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: false,
+    });
+    cameraEl = document.createElement('video');
+    cameraEl.srcObject = cameraStream;
+    cameraEl.autoplay = true;
+    cameraEl.muted = true;
+    cameraEl.playsInline = true;
+    try {
+      await cameraEl.play();
+    } catch (playErr) {
+      // Autoplay-policy or codec failure — surface instead of silently
+      // showing "Camera ✓" with a black frame
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+      cameraEl = null;
+      alert('Camera acquired but could not play: ' + (playErr.message || playErr));
+      return;
+    }
+    btn.textContent = 'Camera ✓';
+    btn.classList.remove('ghost');
+    btn.classList.add('active');
+  } catch (err) {
+    alert('Could not access camera: ' + err.message);
+  }
+}
+document.getElementById('btn-camera').addEventListener('click', toggleCamera);
+
+// ──────────────────────────────────────────────────────────────────────────
+// Recording
+// ──────────────────────────────────────────────────────────────────────────
+let recorder = null, recChunks = [];
+let recStart = 0, recTimerHandle = 0;
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function tickRecTimer() {
+  document.getElementById('rec-time').textContent = fmtTime(performance.now() - recStart);
+}
+function resetRecordUI() {
+  document.body.classList.remove('recording');
+  document.getElementById('btn-record').textContent = '● Record';
+  // Re-enable mode buttons that were disabled during recording
+  document.getElementById('btn-spotify').disabled = false;
+  document.getElementById('btn-tiktok').disabled = false;
+  if (recTimerHandle) { clearInterval(recTimerHandle); recTimerHandle = 0; }
+  document.getElementById('rec-time').textContent = '';
+}
+function startRecording() {
+  if (!started || mode !== 'tiktok') return;
+  if (recorder && recorder.state === 'recording') return; // idempotent
+  const liveAudio = audioStream && audioStream.getAudioTracks().filter(t => t.readyState === 'live');
+  if (!liveAudio || liveAudio.length === 0) {
+    setStatus('cannot record — no live audio track');
+    return;
+  }
+  // captureStream(0) + manual requestFrame would give frame-perfect timing
+  // at variable refresh rates, but produces files where playback rate can
+  // drift. Fixed 60 is the right trade for typical TikTok export.
+  const canvasStream = canvas.captureStream(60);
+  const tracks = [...canvasStream.getVideoTracks(), ...liveAudio];
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+    ? 'video/webm;codecs=vp9,opus'
+    : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+      ? 'video/webm;codecs=vp8,opus'
+      : 'video/webm';
+  try {
+    recorder = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+  } catch (err) {
+    setStatus('recorder init failed: ' + (err.message || err));
+    return;
+  }
+  recChunks = [];
+  recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onerror = e => {
+    setStatus('recorder error: ' + (e.error && e.error.name ? e.error.name : 'unknown'));
+    try { recorder.stop(); } catch (_) {}
+  };
+  recorder.onstop = () => {
+    try {
+      if (recChunks.length === 0) {
+        setStatus('recording produced no data');
+      } else {
+        const blob = new Blob(recChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `tiktok-visualizer-${Date.now()}.webm`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        setStatus('saved ' + (blob.size / 1024 / 1024).toFixed(1) + ' MB');
+      }
+    } finally {
+      // Always free chunk memory — VP9 @ 8Mbps holds ~60MB/minute otherwise
+      recChunks = [];
+      resetRecordUI();
+    }
+  };
+  try {
+    recorder.start(500);
+  } catch (err) {
+    setStatus('recorder.start failed: ' + (err.message || err));
+    return;
+  }
+  document.body.classList.add('recording');
+  document.getElementById('btn-record').textContent = '■ Stop';
+  // Block mode changes mid-record (resize() also guards, but disabling the
+  // UI is clearer feedback).
+  document.getElementById('btn-spotify').disabled = true;
+  document.getElementById('btn-tiktok').disabled = true;
+  recStart = performance.now();
+  tickRecTimer();
+  recTimerHandle = setInterval(tickRecTimer, 500);
+  setStatus('recording');
+}
+function stopRecording() {
+  if (!recorder || recorder.state === 'inactive') return;
+  try { recorder.stop(); } catch (_) {}
+  // Note: actual UI reset happens in onstop (handles both user-click and
+  // track-end / error paths consistently).
+}
+document.getElementById('btn-record').addEventListener('click', () => {
+  (recorder && recorder.state === 'recording') ? stopRecording() : startRecording();
+});
+
+canvas.addEventListener('click', () => {
+  document.getElementById('panel').classList.toggle('hide');
+});
+window.addEventListener('keydown', (e) => {
+  // Esc: if in fullscreen, let the browser handle its native "exit fullscreen"
+  // (don't preventDefault). If not fullscreen, reshow the panel — key recovery
+  // path when the user hid it with a canvas click and can't find it again.
+  if (e.key === 'Escape' && !document.fullscreenElement) {
+    document.getElementById('panel').classList.remove('hide');
+  }
+  // F11 fullscreen — works in Electron (Menu.setApplicationMenu(null)
+  // disables the native shortcut) and in Chrome app-mode (where the
+  // browser's own F11 would also work, but this keeps parity).
+  if (e.key === 'F11') {
+    e.preventDefault();
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+  // R toggles recording in TikTok mode
+  if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (started && mode === 'tiktok') {
+      (recorder && recorder.state === 'recording') ? stopRecording() : startRecording();
+    }
+  }
+});
+
+// Clean up streams on close / reload — avoids lingering webcam LED and
+// orphaned display-media capture indicators in the Windows tray.
+window.addEventListener('beforeunload', () => {
+  if (cameraStream) { try { cameraStream.getTracks().forEach(t => t.stop()); } catch (_) {} }
+  if (audioStream)  { try { audioStream.getTracks().forEach(t => t.stop()); }  catch (_) {} }
+  if (recorder && recorder.state === 'recording') { try { recorder.stop(); } catch (_) {} }
+});
+
+function setStatus(s) { document.getElementById('status').textContent = s; }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Beat detection — spectral flux onset detector.
+// We track positive change in a tight bass band (bins ~1-7, ≈40-300Hz —
+// kick drum / bass guitar range) and fire when the flux spikes well above
+// its running average. Flux-based detection responds to TRANSIENTS, which
+// is what you perceive as a beat, rather than overall loudness.
+// ──────────────────────────────────────────────────────────────────────────
+let prevBassBins = new Uint8Array(8);
+let fluxAvg = 0;
+let lastBeat = 0;
+let flash = 0;           // 0–1, spikes to 1 on beat, decays each frame
+const BEAT_MIN_GAP_MS = 140;  // allows up to ~430 BPM (headroom for double-time)
+
+function detectBeat(now) {
+  let flux = 0;
+  for (let i = 1; i < 8; i++) {
+    const diff = freq[i] - prevBassBins[i];
+    if (diff > 0) flux += diff;
+    prevBassBins[i] = freq[i];
+  }
+  fluxAvg = fluxAvg * 0.92 + flux * 0.08;
+  const threshold = fluxAvg * 1.55 + 6;
+  if (flux > threshold && now - lastBeat > BEAT_MIN_GAP_MS) {
+    lastBeat = now;
+    return flux / (threshold || 1); // strength ratio (>1)
+  }
+  return 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Multi-color palette — anchors spread across the full hue wheel at all times
+// Each blob gets its own fixed hue anchor (golden-angle separation → maximum
+// perceptual distinctness) that only slowly rotates. This guarantees every
+// frame shows the full rainbow, not a single-hue family.
+// ──────────────────────────────────────────────────────────────────────────
+const BLOB_COUNT = 10;
+const GOLDEN = 137.508;
+let rotate = 0; // slow global rotation of the whole palette
+function hueFor(i, extra = 0) {
+  return (i * GOLDEN + rotate + extra) % 360;
+}
+function hsla(h, s, l, a) { return `hsla(${(h % 360 + 360) % 360}, ${s}%, ${l}%, ${a})`; }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Drip particles — gravity-affected droplets that fall from the blobs,
+// leaving stretched liquid trails. They give the "dripping" feel.
+// ──────────────────────────────────────────────────────────────────────────
+// Long spiraling "worms" — each has a multi-hundred-sample history so the
+// rendered trail is a long continuous sinuous line, not a short streak.
+const drips = [];
+const TRAIL_LEN = 100;    // long trails
+const MAX_DRIPS = 350;    // restrained count — sparse laser streaks, not a storm
+function spawnDrip(x, y, hue, vx0, vy0, energy) {
+  drips.push({
+    x, y,
+    vx: vx0 + (Math.random() - 0.5) * 40,
+    vy: vy0 * 0.2 + (Math.random() - 0.5) * 40,
+    r: 0.4 + Math.random() * 0.8, // very small heads
+    hue,
+    life: 1,
+    spin: (Math.random() < 0.5 ? 1 : -1) * (0.8 + Math.random() * 1.4),
+    noiseSeed: Math.random() * 1000,
+    history: [{ x, y }],
+  });
+  if (drips.length > MAX_DRIPS) drips.shift();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Ripples on beats
+// ──────────────────────────────────────────────────────────────────────────
+const ripples = [];
+function spawnRipple(strength, hue) {
+  ripples.push({ r: 0, life: 1, strength, hue });
+  if (ripples.length > 16) ripples.shift();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Render
+// ──────────────────────────────────────────────────────────────────────────
+let lastTime = 0;
+const DPR = () => devicePixelRatio || 1;
+
+function drawTieDyeSmiley(t, bass = 0, mid = 0, high = 0, beat = false, flash = 0) {
+  if (mode === 'tiktok') {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#050208';
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rectX, rectY, rectW, rectH);
+    ctx.clip();
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#050208';
+    ctx.fillRect(rectX, rectY, rectW, rectH);
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 6; i++) {
+    const hue = (t * 32 + i * 58) % 360;
+    const radius = Math.max(rectW, rectH) * 0.55 * (0.7 + i * 0.08);
+    const x = drawCx + Math.cos(t * (0.33 + i * 0.12) + i * 1.7) * rectW * 0.18;
+    const y = drawCy + Math.sin(t * (0.44 + i * 0.09) + i * 2.5) * rectH * 0.18;
+    const g = ctx.createRadialGradient(x, y, radius * 0.14, x, y, radius);
+    g.addColorStop(0, hsla(hue, 100, 74, 0.34));
+    g.addColorStop(0.45, hsla(hue + 40, 100, 64, 0.18));
+    g.addColorStop(1, 'hsla(0,0%,0%,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(rectX, rectY, rectW, rectH);
+  }
+
+  for (let i = 0; i < 8; i++) {
+    const hue = (t * 28 + i * 45) % 360;
+    ctx.strokeStyle = hsla(hue, 100, 72, 0.22);
+    ctx.lineWidth = 18 * DPR() * ((i % 2) ? 1.0 : 0.75);
+    ctx.beginPath();
+    const r = Math.min(rectW, rectH) * 0.52;
+    const offset = t * (0.18 + i * 0.04);
+    for (let a = 0; a <= Math.PI * 2; a += 0.2) {
+      const wobble = Math.sin(a * 3 + offset + i) * 26 * DPR() * (0.4 + i * 0.05);
+      const rr = r + wobble;
+      const x = drawCx + Math.cos(a + offset * 0.5) * rr;
+      const y = drawCy + Math.sin(a + offset * 0.9) * rr;
+      if (a === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  const faceR = Math.min(rectW, rectH) * 0.28;
+  const faceShift = Math.sin(t * 0.85) * 12 * DPR();
+  const faceWobble = Math.sin(t * 1.1) * 0.03;
+  const hue = (t * 50) % 360;
+  const faceGradient = ctx.createRadialGradient(drawCx - faceR * 0.15, drawCy - faceR * 0.15, 0, drawCx, drawCy, faceR);
+  faceGradient.addColorStop(0, hsla(hue + 20, 100, 74, 0.98));
+  faceGradient.addColorStop(0.3, hsla(hue + 75, 100, 64, 0.78));
+  faceGradient.addColorStop(0.6, hsla(hue + 140, 100, 60, 0.55));
+  faceGradient.addColorStop(1, hsla(hue + 220, 100, 56, 0.12));
+  ctx.fillStyle = faceGradient;
+  ctx.beginPath();
+  ctx.ellipse(
+    drawCx + Math.cos(t * 0.7) * faceShift,
+    drawCy + Math.sin(t * 0.5) * faceShift * 0.4,
+    faceR * (1 + faceWobble),
+    faceR * (1 - faceWobble * 0.5),
+    Math.sin(t * 0.12) * 0.08,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+
+  ctx.lineWidth = 6 * DPR();
+  const strokeGrad = ctx.createRadialGradient(drawCx, drawCy, faceR * 0.45, drawCx, drawCy, faceR * 1.05);
+  strokeGrad.addColorStop(0, hsla(hue + 45, 100, 84, 0.9));
+  strokeGrad.addColorStop(1, hsla(hue + 15, 100, 60, 0.24));
+  ctx.strokeStyle = strokeGrad;
+  ctx.stroke();
+
+  const eyeY = drawCy - faceR * 0.18;
+  const eyeX = faceR * 0.42;
+  const eyeR = faceR * 0.18;
+  const eyeGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeR * 2.4);
+  eyeGlow.addColorStop(0, hsla(210, 100, 92, 0.8));
+  eyeGlow.addColorStop(1, 'hsla(210,100%,92%,0)');
+  ctx.save();
+  ctx.translate(drawCx, drawCy);
+  for (const sign of [-1, 1]) {
+    const dx = sign * eyeX + Math.sin(t * 2 + sign) * 4 * DPR();
+    const dy = -faceR * 0.18 + Math.cos(t * 1.7 + sign * 1.3) * 2 * DPR();
+    ctx.fillStyle = eyeGlow;
+    ctx.beginPath();
+    ctx.arc(dx, dy, eyeR * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hsla(220 + sign * 20 + Math.sin(t * 1.4) * 10, 100, 12, 0.96);
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, eyeR * 0.92, eyeR * 1.2, sign * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(dx, dy + eyeR * 0.08, eyeR * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  const smileSway = Math.sin(t * 1.65) * 0.22;
+  const smileWidth = faceR * 1.2;
+  const smileHeight = faceR * (0.58 + high * 0.2);
+  const smileY = drawCy + faceR * 0.24 + Math.sin(t * 1.9) * 4 * DPR();
+  ctx.strokeStyle = hsla(340 + Math.sin(t * 0.9) * 20, 100, 72, 0.96);
+  ctx.lineWidth = 18 * DPR();
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(drawCx - smileWidth * 0.5, smileY);
+  ctx.bezierCurveTo(
+    drawCx - smileWidth * 0.3,
+    smileY + smileHeight * (0.8 + smileSway),
+    drawCx + smileWidth * 0.3,
+    smileY + smileHeight * (0.8 - smileSway),
+    drawCx + smileWidth * 0.5,
+    smileY
+  );
+  ctx.stroke();
+
+  const sparkCount = 14;
+  for (let i = 0; i < sparkCount; i++) {
+    const a = (i / sparkCount) * Math.PI * 2 + t * 0.6;
+    const r = faceR * (0.95 + Math.sin(t * 1.3 + i) * 0.08);
+    const x = drawCx + Math.cos(a) * r;
+    const y = drawCy + Math.sin(a) * r * 0.92;
+    const size = 6 + Math.sin(t * 2 + i * 0.8) * 3;
+    ctx.fillStyle = hsla((hue + i * 18 + t * 40) % 360, 100, 75, 0.35);
+    ctx.beginPath();
+    ctx.arc(x, y, size * DPR() * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (mode === 'tiktok') ctx.restore();
+}
+
+function frame(nowMs) {
+  requestAnimationFrame(frame);
+    const now = nowMs || performance.now();
+      const t = now / 1000;
+        const dt = Math.min(0.05, (now - lastTime) / 1000) || 0.016;
+          lastTime = now;
+          
+  rotate = (rotate + dt * 12) % 360;
+    analyser.getByteFrequencyData(freq);
+    
+  let bass = 0, mid = 0, high = 0;
+    const binCount = freq.length;
+      const bassEnd = Math.floor(binCount * 0.06);
+        const midEnd = Math.floor(binCount * 0.25);
+          for (let i = 0; i < bassEnd; i++) bass += freq[i];
+            for (let i = bassEnd; i < midEnd; i++) mid += freq[i];
+              for (let i = midEnd; i < binCount; i++) high += freq[i];
+                bass /= bassEnd * 255;
+                  mid /= (midEnd - bassEnd) * 255;
+                    high /= (binCount - midEnd) * 255;
+                    
+  const beatStrength = detectBeat(now);
+    const beat = beatStrength > 0;
+      if (beat) flash = Math.min(1, 0.55 + beatStrength * 0.25);
+        flash *= Math.exp(-dt * 3.8);
+        
+  document.getElementById('bar-bass').style.height = (4 + Math.min(1, bass * 1.6) * 34) + 'px';
+    document.getElementById('bar-mid').style.height  = (4 + Math.min(1, mid * 1.8) * 34) + 'px';
+      document.getElementById('bar-high').style.height = (4 + Math.min(1, high * 2.2) * 34) + 'px';
+      
+  silenceAccum = (bass + mid + high < 0.02) ? silenceAccum + dt : 0;
+    if (silenceAccum > 3 && !silenceWarned) {
+        silenceWarned = true;
+            setStatus('NO INPUT — set Spotify output to your Windows default device');
+              } else if (silenceAccum === 0 && silenceWarned) {
+                  silenceWarned = false;
+                    }
+                      if (!silenceWarned) {
+                          if (beat) setStatus(`BEAT ×${beatStrength.toFixed(2)}`);
+                              else setStatus(`listening · bass ${(bass*100).toFixed(0)} mid ${(mid*100).toFixed(0)} hi ${(high*100).toFixed(0)}`);
+                                }
+                                
+  drawTieDyeSmiley(t, bass, mid, high, beat, flash);
+  }
+  // Idle pulse — also multicolor. Named so stopAudio() can resume it.
+// idleScheduled prevents two RAF chains running in parallel after a rapid
+// stop-start cycle (both chains would keep `idleScheduled` true, but the
+// tail of one would re-queue while the other is already queued).
+let idleScheduled = false;
+function idleFrame() {
+  idleScheduled = false;
+    if (started) return;
+  idleScheduled = true;
+  const t = performance.now() / 1000;
+  rotate = (rotate + 0.9 * 0.016) % 360;
+  drawTieDyeSmiley(t, 0.07, 0.04, 0.1, false, 0.22);
+  requestAnimationFrame(idleFrame);
+}
+idleScheduled = true;
+requestAnimationFrame(idleFrame);
+</script>
+</body>
+</html>

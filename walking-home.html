@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Walking Home</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  canvas { display: block; border-radius: 4px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 900, H = 520;
+canvas.width = W; canvas.height = H;
+
+const VPX = W * 0.5;
+const VPY = H * 0.40;   // horizon line
+const ROAD_L = 0.26;    // road left fraction at bottom
+const ROAD_R = 0.74;    // road right fraction at bottom
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function roadX(t, side) {
+  // t=0 horizon, t=1 bottom  side=-1 left, 1 right
+  return VPX + side * lerp(8, W * (side < 0 ? 0.5 - ROAD_L : ROAD_R - 0.5), t);
+}
+
+// --- Sky ---
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, VPY + 20);
+  g.addColorStop(0,    '#120228');
+  g.addColorStop(0.45, '#7b1840');
+  g.addColorStop(0.8,  '#d95520');
+  g.addColorStop(1,    '#f07820');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, VPY + 20);
+}
+
+// --- Sun ---
+function drawSun() {
+  const sx = VPX - 30, sy = VPY - 44;
+  const glow = ctx.createRadialGradient(sx, sy, 2, sx, sy, 70);
+  glow.addColorStop(0,   'rgba(255,230,80,0.5)');
+  glow.addColorStop(0.4, 'rgba(255,120,40,0.2)');
+  glow.addColorStop(1,   'rgba(255,80,20,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(sx, sy, 70, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffe050';
+  ctx.beginPath(); ctx.arc(sx, sy, 18, 0, Math.PI*2); ctx.fill();
+}
+
+// --- Clouds ---
+function drawClouds(t) {
+  const clouds = [{x:0.15,y:0.12,w:90,h:22},{x:0.65,y:0.08,w:120,h:18},{x:0.35,y:0.22,w:70,h:14}];
+  clouds.forEach(c => {
+    const cx = (c.x * W + t * 0.08) % (W + 200) - 100;
+    const cy = c.y * VPY;
+    ctx.fillStyle = 'rgba(200,100,60,0.22)';
+    ctx.beginPath(); ctx.ellipse(cx, cy, c.w, c.h, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(240,150,80,0.12)';
+    ctx.beginPath(); ctx.ellipse(cx - 20, cy - 6, c.w*0.7, c.h*0.7, 0, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+// --- Ground ---
+function drawGround() {
+  const g = ctx.createLinearGradient(0, VPY, 0, H);
+  g.addColorStop(0, '#3d1a00');
+  g.addColorStop(1, '#1c0d00');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, VPY, W, H - VPY);
+}
+
+// --- Road ---
+function drawRoad() {
+  ctx.beginPath();
+  ctx.moveTo(roadX(0,-1), VPY); ctx.lineTo(roadX(0,1), VPY);
+  ctx.lineTo(roadX(1,1),  H);   ctx.lineTo(roadX(1,-1), H);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, VPY, 0, H);
+  g.addColorStop(0, '#2e2318'); g.addColorStop(1, '#3d3020');
+  ctx.fillStyle = g; ctx.fill();
+  // road edge lines
+  ctx.strokeStyle = 'rgba(200,160,80,0.15)';
+  ctx.lineWidth = 1.5;
+  [-1,1].forEach(side => {
+    ctx.beginPath();
+    ctx.moveTo(roadX(0,side), VPY);
+    ctx.lineTo(roadX(1,side), H);
+    ctx.stroke();
+  });
+  // dashes
+  ctx.setLineDash([]);
+  for (let d = 0.05; d < 1; d += 0.13) {
+    const y0 = VPY + (H-VPY)*d, y1 = VPY + (H-VPY)*(d+0.06);
+    ctx.strokeStyle = 'rgba(255,210,100,0.2)';
+    ctx.lineWidth = lerp(0.5, 2, d);
+    ctx.beginPath(); ctx.moveTo(VPX, y0); ctx.lineTo(VPX, y1); ctx.stroke();
+  }
+}
+
+// --- House ---
+function drawHouse(t) {
+  const hx = VPX + 5, hy = VPY + 2;
+  const hw = 32, hh = 26;
+  ctx.fillStyle = '#130a02'; ctx.fillRect(hx-hw/2, hy-hh, hw, hh);
+  ctx.fillStyle = '#0a0501';
+  ctx.beginPath(); ctx.moveTo(hx-hw/2-4,hy-hh); ctx.lineTo(hx,hy-hh-16); ctx.lineTo(hx+hw/2+4,hy-hh); ctx.closePath(); ctx.fill();
+  // windows
+  const wg = ctx.createRadialGradient(hx-6, hy-hh+10, 1, hx-6, hy-hh+10, 8);
+  wg.addColorStop(0,'rgba(255,200,80,0.9)'); wg.addColorStop(1,'rgba(255,120,20,0.1)');
+  ctx.fillStyle = wg; ctx.fillRect(hx-10, hy-hh+7, 8, 7);
+  ctx.fillStyle = 'rgba(255,180,60,0.6)'; ctx.fillRect(hx+2, hy-hh+7, 6, 7);
+  // chimney
+  ctx.fillStyle = '#0a0501'; ctx.fillRect(hx+7, hy-hh-20, 6, 12);
+  for (let i = 0; i < 3; i++) {
+    const sp = ((t*0.4 + i*14) % 42);
+    const alpha = 0.28 - sp/150;
+    if (alpha > 0) {
+      ctx.fillStyle = `rgba(180,130,100,${alpha})`;
+      ctx.beginPath(); ctx.arc(hx+10+Math.sin(sp*0.1)*3, hy-hh-20-sp*0.5, 2+sp*0.07, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+// --- Trees ---
+function drawTrees() {
+  const specs = [
+    {d:0.07,side:-1,off:0.12},{d:0.16,side:-1,off:0.09},{d:0.32,side:-1,off:0.07},{d:0.55,side:-1,off:0.05},
+    {d:0.07,side: 1,off:0.12},{d:0.16,side: 1,off:0.09},{d:0.32,side: 1,off:0.07},{d:0.55,side: 1,off:0.05},
+  ];
+  specs.forEach(({d,side,off}) => {
+    const ry = VPY + (H-VPY)*d;
+    const rx = roadX(d,side) + side * off * W;
+    const th = lerp(18, 140, d), tw = lerp(8, 55, d);
+    // trunk
+    ctx.fillStyle = '#160900';
+    ctx.fillRect(rx - tw*0.06, ry - th*0.38, tw*0.12, th*0.38);
+    // foliage layers
+    ctx.fillStyle = '#0c1606';
+    for (let i = 2; i >= 0; i--) {
+      ctx.beginPath(); ctx.ellipse(rx, ry-th*0.3-i*th*0.2, tw*0.52, th*0.3, 0, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(240,110,30,0.18)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.ellipse(rx-tw*0.08, ry-th*0.3-2*th*0.2, tw*0.52, th*0.3, 0, 0, Math.PI*2); ctx.stroke();
+  });
+}
+
+// ─── JOINTED FIGURE ───────────────────────────────────────────────────────────
+// draws a proper 2-segment leg with knee, and 2-segment arm with elbow
+function joint(x0,y0, upperLen, upperAngle, lowerLen, lowerAngle) {
+  const kneeX = x0 + Math.sin(upperAngle) * upperLen;
+  const kneeY = y0 + Math.cos(upperAngle) * upperLen;
+  const endX  = kneeX + Math.sin(lowerAngle) * lowerLen;
+  const endY  = kneeY + Math.cos(lowerAngle) * lowerLen;
+  return { kneeX, kneeY, endX, endY };
+}
+
+function drawLimb(x0,y0, kx,ky, ex,ey, w, col) {
+  ctx.lineWidth = w; ctx.strokeStyle = col; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(kx,ky); ctx.lineTo(ex,ey); ctx.stroke();
+}
+
+function drawFigure(cx, groundY, s, phase, isChild) {
+  // s = scale (1 at full size near bottom)
+  const P = phase;
+  const walkSpeed = isChild ? 1.25 : 1.0;
+  const wp = P * walkSpeed;
+
+  // gait values
+  const hipSwayAmt   = isChild ? 0.02 : 0.025;
+  const hipSway      = Math.sin(wp * 2) * hipSwayAmt * s * 60;
+  const bob          = Math.abs(Math.sin(wp * 2)) * s * 3.5 - s * 1.5;
+
+  // base positions
+  const hipX  = cx + hipSway;
+  const hipY  = groundY - s * (isChild ? 38 : 52) + bob;
+  const shoulderY = hipY - s * (isChild ? 22 : 30);
+  const neckY     = shoulderY + s * 4;
+  const headY     = neckY     - s * (isChild ? 10 : 12);
+
+  // leg swing angles (radians)
+  const legSwing = Math.sin(wp * 2) * 0.42;
+  const kneeBend = 0.18 + Math.abs(Math.sin(wp * 2)) * 0.22;
+
+  const UL = s * (isChild ? 20 : 27);  // upper leg
+  const LL = s * (isChild ? 18 : 25);  // lower leg
+  const UA = s * (isChild ? 15 : 20);  // upper arm
+  const LA = s * (isChild ? 13 : 17);  // lower arm
+
+  // arm swing (opposite to legs)
+  const armSwing = -legSwing * 0.55;
+  const elbowBend = 0.15 + Math.abs(Math.sin(wp * 2)) * 0.2;
+
+  // --- shadow ---
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(cx, groundY+2, s*(isChild?14:18), s*4, 0, 0, Math.PI*2); ctx.fill();
+
+  const skinTone = isChild ? '#c87858' : '#b86848';
+  const clothTop = isChild ? '#5555cc' : '#7733aa';
+  const clothBot = isChild ? '#3344aa' : '#cc3388';
+  const hairCol  = '#1a0808';
+  const legCol   = isChild ? '#334499' : '#220044';
+  const shoeCol  = '#1a1010';
+
+  // ── back leg (slightly darker) ──
+  const bl = joint(hipX, hipY, UL, -legSwing + 0.06, LL, (-legSwing + 0.06) + kneeBend + 0.1);
+  drawLimb(hipX,hipY, bl.kneeX,bl.kneeY, bl.endX,bl.endY, s*(isChild?5:7), '#1a0a30');
+  // shoe back
+  ctx.fillStyle = shoeCol;
+  ctx.beginPath(); ctx.ellipse(bl.endX+s*2, bl.endY, s*4, s*2.5, 0.2, 0, Math.PI*2); ctx.fill();
+
+  // ── front leg ──
+  const fl = joint(hipX, hipY, UL, legSwing, LL, legSwing - kneeBend);
+  drawLimb(hipX,hipY, fl.kneeX,fl.kneeY, fl.endX,fl.endY, s*(isChild?5:7), legCol);
+  ctx.fillStyle = shoeCol;
+  ctx.beginPath(); ctx.ellipse(fl.endX+s*2, fl.endY, s*4.5, s*3, 0.2, 0, Math.PI*2); ctx.fill();
+
+  // ── dress / body shape ──
+  if (!isChild) {
+    // flowing skirt
+    const skirtSwing = Math.sin(wp * 2) * s * 6;
+    ctx.fillStyle = clothBot;
+    ctx.beginPath();
+    ctx.moveTo(hipX - s*7, hipY);
+    ctx.quadraticCurveTo(hipX + skirtSwing, hipY + s*6, hipX + s*13, hipY + s*2);
+    ctx.lineTo(hipX + s*10, hipY - s*2);
+    ctx.lineTo(hipX - s*5, hipY - s*2);
+    ctx.closePath(); ctx.fill();
+  } else {
+    // shorts
+    ctx.fillStyle = clothBot;
+    ctx.beginPath(); ctx.ellipse(hipX, hipY + s*2, s*9, s*5, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  // ── torso ──
+  ctx.fillStyle = clothTop;
+  ctx.beginPath();
+  ctx.ellipse(hipX, (hipY + shoulderY)*0.5, s*(isChild?8:10), Math.abs(hipY-shoulderY)*0.52, 0, 0, Math.PI*2);
+  ctx.fill();
+  // torso detail line
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = s*1.5;
+  ctx.beginPath(); ctx.moveTo(hipX, hipY - s*3); ctx.lineTo(hipX, shoulderY + s*2); ctx.stroke();
+
+  // ── back arm ──
+  const ba = joint(hipX, shoulderY, UA, armSwing - 0.08, LA, (armSwing-0.08) - elbowBend);
+  drawLimb(hipX, shoulderY, ba.kneeX,ba.kneeY, ba.endX,ba.endY, s*(isChild?4:5), '#7722aa');
+  // hand back
+  ctx.fillStyle = skinTone;
+  ctx.beginPath(); ctx.arc(ba.endX, ba.endY, s*2.5, 0, Math.PI*2); ctx.fill();
+
+  // ── neck ──
+  ctx.strokeStyle = skinTone; ctx.lineWidth = s*3.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(hipX, neckY+s*3); ctx.lineTo(hipX, neckY); ctx.stroke();
+
+  // ── head ──
+  const headR = s * (isChild ? 9.5 : 11);
+  ctx.fillStyle = skinTone;
+  ctx.beginPath(); ctx.arc(hipX, headY, headR, 0, Math.PI*2); ctx.fill();
+
+  // face — slight profile facing forward (we see 3/4)
+  const eyeX = hipX + headR * 0.25, eyeY = headY - headR * 0.08;
+  ctx.fillStyle = '#2a0808';
+  ctx.beginPath(); ctx.arc(eyeX, eyeY, s*1.4, 0, Math.PI*2); ctx.fill();
+  // smile
+  ctx.strokeStyle = '#1a0505'; ctx.lineWidth = s*1.2;
+  ctx.beginPath();
+  ctx.arc(eyeX + s*0.5, eyeY + s*3, s*3, 0.1, Math.PI*0.7); ctx.stroke();
+
+  // ── hair ──
+  ctx.fillStyle = hairCol;
+  if (!isChild) {
+    // bun + flowing hair
+    ctx.beginPath(); ctx.arc(hipX - s*1, headY - headR*0.5, headR*0.7, Math.PI, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hipX + s*4, headY - headR*0.65, headR*0.45, 0, Math.PI*2); ctx.fill();
+    // hair strand flowing
+    const hairBlow = Math.sin(wp*2)*s*2;
+    ctx.beginPath();
+    ctx.moveTo(hipX - headR*0.6, headY + headR*0.2);
+    ctx.quadraticCurveTo(hipX - headR - hairBlow, headY + headR, hipX - headR*0.8 - hairBlow, headY + headR*1.8);
+    ctx.lineWidth = s*3; ctx.strokeStyle = hairCol; ctx.stroke();
+  } else {
+    // pigtails that bounce
+    const bounce = Math.sin(wp*2)*s*2;
+    ctx.beginPath(); ctx.arc(hipX, headY - headR*0.6, headR*0.85, Math.PI*1.1, Math.PI*2-0.1); ctx.fill();
+    // left pigtail
+    ctx.beginPath();
+    ctx.moveTo(hipX - headR*0.7, headY - headR*0.3);
+    ctx.quadraticCurveTo(hipX - headR*1.4, headY + bounce, hipX - headR*1.1, headY + headR*0.6 + bounce);
+    ctx.lineWidth = s*3.5; ctx.strokeStyle = hairCol; ctx.stroke();
+    // right pigtail
+    ctx.beginPath();
+    ctx.moveTo(hipX + headR*0.7, headY - headR*0.3);
+    ctx.quadraticCurveTo(hipX + headR*1.4, headY - bounce, hipX + headR*1.1, headY + headR*0.6 - bounce);
+    ctx.stroke();
+  }
+
+  // ── front arm ──
+  const fa = joint(hipX, shoulderY, UA, -armSwing, LA, (-armSwing) + elbowBend);
+  drawLimb(hipX, shoulderY, fa.kneeX,fa.kneeY, fa.endX,fa.endY, s*(isChild?4:5), clothTop);
+  ctx.fillStyle = skinTone;
+  ctx.beginPath(); ctx.arc(fa.endX, fa.endY, s*2.8, 0, Math.PI*2); ctx.fill();
+}
+
+// ── walk path: figures start near-bottom and move toward horizon ──────────────
+// depth goes from 1 (near) to 0 (horizon)
+let depth = 0.98;      // current depth (1=near, 0=at horizon)
+const WALK_SPEED = 0.0008;  // how fast they recede per frame
+let t = 0;
+
+function scaleAt(d) { return lerp(0.18, 1.15, d); }
+
+function figurePos(d, offsetX) {
+  const gY = VPY + (H - VPY) * d;
+  const s  = scaleAt(d);
+  // x tracks the road center with a slight offset
+  const rx = lerp(VPX, VPX + offsetX * s, d);
+  return { x: rx, y: gY, s };
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawSky();
+  drawClouds(t);
+  drawSun();
+  drawGround();
+  drawRoad();
+  drawHouse(t);
+  drawTrees();
+
+  // walk phase tied to time (not depth) for smooth gait
+  const phase = t * 0.028;
+
+  // woman slightly left of child
+  const wp = figurePos(depth, -14);
+  drawFigure(wp.x, wp.y, wp.s, phase, false);
+
+  // child slightly ahead (closer to center, a tiny bit further back)
+  const cd = Math.max(0.01, depth - 0.025);
+  const cp = figurePos(cd, 8);
+  drawFigure(cp.x, cp.y, cp.s, phase + 0.3, true);
+
+  // horizon haze
+  const haze = ctx.createLinearGradient(0, VPY-8, 0, VPY+50);
+  haze.addColorStop(0,'rgba(240,100,40,0.22)'); haze.addColorStop(1,'rgba(240,100,40,0)');
+  ctx.fillStyle = haze; ctx.fillRect(0, VPY-8, W, 58);
+
+  // recede — loop when tiny
+  depth -= WALK_SPEED;
+  if (depth < 0.06) depth = 0.98;
+
+  t++;
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
