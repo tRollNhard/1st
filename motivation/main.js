@@ -8,6 +8,20 @@ const envHelper = require('./server/env');
 const generator = require('./server/generator');
 const quoteGenerator = require('./server/quoteGenerator');
 
+// Auto-borrow ANTHROPIC_API_KEY from parent BRAIN project if not set locally
+function syncParentKey() {
+  const env = envHelper.readAll();
+  if (env.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY !== 'your-api-key-here') return;
+  const parentEnv = path.join(__dirname, '..', '.env');
+  if (!fs.existsSync(parentEnv)) return;
+  const match = fs.readFileSync(parentEnv, 'utf8').match(/^ANTHROPIC_API_KEY=(.+)$/m);
+  if (match?.[1] && match[1].trim() !== 'your-api-key-here') {
+    envHelper.save('ANTHROPIC_API_KEY', match[1].trim());
+    process.env.ANTHROPIC_API_KEY = match[1].trim();
+  }
+}
+syncParentKey();
+
 let tray, promptWindow, progressWindow, setupWindow, quoteWindow, quoteProgressWindow;
 let oauthServer = null;
 

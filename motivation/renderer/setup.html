@@ -103,11 +103,24 @@
       <!-- Step 2: Platforms -->
       <div class="panel" id="panel2">
         <div class="panel-title">Social Platforms</div>
-        <div class="panel-desc">Connect each platform. Click "Setup →" to open the guide, paste the token back here. You can skip any you don't use.</div>
+        <div class="panel-desc">Start with TikTok — it's all you need. YouTube, Instagram, and LinkedIn are optional; add them later whenever you're ready.</div>
         <div class="platform-grid">
 
+          <div class="platform-card" id="card-tiktok" style="border-color:#7c6dfa44;grid-column:span 2">
+            <div class="platform-name">♪ TikTok <span style="font-size:10px;color:#7c6dfa;font-weight:400;margin-left:6px">★ Start here</span></div>
+            <div class="platform-status" id="ps-tiktok">Not connected</div>
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <input class="key-input" id="input-tt-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
+              <input class="key-input" id="input-tt-openid" placeholder="Open ID (optional)" style="font-size:11px;padding:7px 10px" />
+            </div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://developers.tiktok.com')">Get Token →</button>
+              <button class="btn btn-connect" onclick="saveTikTok()">Save</button>
+            </div>
+          </div>
+
           <div class="platform-card" id="card-youtube">
-            <div class="platform-name">▶ YouTube</div>
+            <div class="platform-name">▶ YouTube <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
             <div class="platform-status" id="ps-youtube">Not connected</div>
             <input class="key-input" id="input-yt-id" placeholder="Google Client ID" style="font-size:11px;padding:7px 10px" />
             <input class="key-input" id="input-yt-secret" placeholder="Google Client Secret" style="font-size:11px;padding:7px 10px;margin-top:4px" />
@@ -117,36 +130,25 @@
             </div>
           </div>
 
-          <div class="platform-card" id="card-linkedin">
-            <div class="platform-name">in LinkedIn</div>
-            <div class="platform-status" id="ps-linkedin">Not connected</div>
-            <input class="key-input" id="input-li-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
-            <input class="key-input" id="input-li-urn" placeholder="urn:li:person:XXXXX" style="font-size:11px;padding:7px 10px;margin-top:4px" />
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="btn btn-connect" onclick="openUrl('https://www.linkedin.com/developers/tools/oauth')">Get Token →</button>
-              <button class="btn btn-connect" onclick="saveLinkedIn()">Save</button>
-            </div>
-          </div>
-
-          <div class="platform-card" id="card-tiktok">
-            <div class="platform-name">♪ TikTok</div>
-            <div class="platform-status" id="ps-tiktok">Not connected</div>
-            <input class="key-input" id="input-tt-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
-            <input class="key-input" id="input-tt-openid" placeholder="Open ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="btn btn-connect" onclick="openUrl('https://developers.tiktok.com')">Setup →</button>
-              <button class="btn btn-connect" onclick="saveTikTok()">Save</button>
-            </div>
-          </div>
-
           <div class="platform-card" id="card-instagram">
-            <div class="platform-name">📷 Instagram</div>
+            <div class="platform-name">📷 Instagram <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
             <div class="platform-status" id="ps-instagram">Not connected</div>
             <input class="key-input" id="input-ig-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
             <input class="key-input" id="input-ig-id" placeholder="Business Account ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
             <div style="display:flex;gap:6px;margin-top:4px">
               <button class="btn btn-connect" onclick="openUrl('https://developers.facebook.com')">Setup →</button>
               <button class="btn btn-connect" onclick="saveInstagram()">Save</button>
+            </div>
+          </div>
+
+          <div class="platform-card" id="card-linkedin">
+            <div class="platform-name">in LinkedIn <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
+            <div class="platform-status" id="ps-linkedin">Not connected</div>
+            <input class="key-input" id="input-li-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-li-urn" placeholder="urn:li:person:XXXXX" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://www.linkedin.com/developers/tools/oauth')">Get Token →</button>
+              <button class="btn btn-connect" onclick="saveLinkedIn()">Save</button>
             </div>
           </div>
 
@@ -176,7 +178,7 @@
         <div class="finish-wrap">
           <div class="finish-icon">⚡</div>
           <div class="finish-title">You're all set!</div>
-          <div class="finish-sub">The app runs in your system tray.<br>Every day at 9AM it pops up — review, approve, done.</div>
+          <div class="finish-sub">The app runs in your system tray.<br>7:15 AM — daily quote posted to TikTok.<br>9:00 AM — motivational video posted to TikTok.<br>Or trigger anytime: right-click the tray icon.</div>
           <button class="btn btn-approve" style="width:200px;margin-top:8px" onclick="motivation.setupDone()">Launch App →</button>
         </div>
       </div>
