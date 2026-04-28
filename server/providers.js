@@ -2,6 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { matchSkills } = require('./skills');
 const { getTools, executeTool, isConfigured: composioConfigured } = require('./composio');
 const fs = require('fs');
+const path = require('path');
 
 // ── Conversation memory per chat ────────────────────────────────────────────
 const chatHistories = new Map();
@@ -77,7 +78,13 @@ async function buildSystemPrompt(message) {
 
 function readSkillContent(skillPath) {
   try {
-    return fs.readFileSync(skillPath, 'utf-8');
+    const resolved = path.resolve(skillPath);
+    const projectRoot = path.resolve(__dirname, '..');
+    if (!resolved.startsWith(projectRoot + path.sep) && resolved !== projectRoot) {
+      console.warn('[SKILLS] Blocked path traversal attempt:', skillPath);
+      return null;
+    }
+    return fs.readFileSync(resolved, 'utf-8');
   } catch {
     return null;
   }

@@ -46,6 +46,12 @@ async function getTools() {
   }
 }
 
+const ALLOWED_TOOL_PREFIXES = [
+  'TWITTER_', 'FACEBOOK_', 'INSTAGRAM_', 'LINKEDIN_',
+  'GITHUB_', 'GMAIL_', 'GCALENDAR_', 'SLACK_', 'NOTION_',
+  'SPOTIFY_', 'YOUTUBE_', 'REDDIT_', 'DISCORD_',
+];
+
 /**
  * Execute a Composio tool call returned by Claude.
  */
@@ -55,12 +61,18 @@ async function executeTool(toolName, toolInput) {
     return { error: 'Composio not configured' };
   }
 
+  const allowed = ALLOWED_TOOL_PREFIXES.some(prefix => toolName.startsWith(prefix));
+  if (!allowed) {
+    console.warn(`[COMPOSIO] Blocked disallowed tool: ${toolName}`);
+    return { error: `Tool not permitted: ${toolName}` };
+  }
+
   try {
     const result = await ts.executeAction(toolName, toolInput);
     return result;
   } catch (err) {
     console.error(`[COMPOSIO] Tool execution error (${toolName}):`, err.message);
-    return { error: err.message };
+    return { error: 'Tool execution failed' };
   }
 }
 

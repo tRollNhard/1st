@@ -5,13 +5,17 @@ const { executeTool, isConfigured: composioConfigured } = require('./composio');
 
 // ── RSS utilities ─────────────────────────────────────────────────────────────
 
-function fetchUrl(url) {
+function fetchUrl(url, redirectCount = 0) {
+  if (redirectCount > 5) return Promise.reject(new Error('Too many redirects'));
+  const parsed = (() => { try { return new URL(url); } catch { return null; } })();
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
+    return Promise.reject(new Error('Invalid URL protocol'));
+  }
   return new Promise((resolve, reject) => {
-    const proto = url.startsWith('https') ? https : http;
+    const proto = parsed.protocol === 'https:' ? https : http;
     const req = proto.get(url, { headers: { 'User-Agent': 'OpenClaudeCowork/1.0' } }, (res) => {
-      // Follow redirects (302 etc.)
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+        return fetchUrl(res.headers.location, redirectCount + 1).then(resolve).catch(reject);
       }
       let data = '';
       res.on('data', chunk => (data += chunk));
@@ -29,6 +33,8 @@ function extractTag(xml, tag) {
 }
 
 function parseRss(xml) {
+  // Strip DOCTYPE declarations to prevent XXE attacks
+  xml = xml.replace(/<!DOCTYPE[^>[]*(\[[^\]]*\])?>/gi, '');
   const items = [];
   const re = /<item>([\s\S]*?)<\/item>/g;
   let m;
@@ -125,10 +131,22 @@ class SocialAutomation {
   }
 
   configure(updates = {}) {
-    if (updates.rssUrl)         this.config.rssUrl = updates.rssUrl;
-    if (updates.pollIntervalMs) this.config.pollIntervalMs = Number(updates.pollIntervalMs);
-    if (Array.isArray(updates.platforms)) this.config.platforms = updates.platforms;
-    if (updates.maxItemsPerCycle) this.config.maxItemsPerCycle = Number(updates.maxItemsPerCycle);
+    if (typeof updates.rssUrl === 'string') {
+      try {
+        const u = new URL(updates.rssUrl);
+        if (u.protocol === 'http:' || u.protocol === 'https:') this.config.rssUrl = updates.rssUrl;
+      } catch {}
+    }
+    if (typeof updates.pollIntervalMs === 'number' && updates.pollIntervalMs >= 60000) {
+      this.config.pollIntervalMs = Math.floor(updates.pollIntervalMs);
+    }
+    if (Array.isArray(updates.platforms)) {
+      const allowed = ['twitter', 'facebook', 'instagram'];
+      this.config.platforms = updates.platforms.filter(p => allowed.includes(p));
+    }
+    if (typeof updates.maxItemsPerCycle === 'number' && updates.maxItemsPerCycle >= 1 && updates.maxItemsPerCycle <= 20) {
+      this.config.maxItemsPerCycle = Math.floor(updates.maxItemsPerCycle);
+    }
   }
 
   _addJob(job) {

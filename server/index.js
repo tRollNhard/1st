@@ -27,13 +27,14 @@ function writeEnvKey(key, value) {
     content = content.trimEnd() + `\n${line}\n`;
   }
   fs.writeFileSync(ENV_PATH, content, 'utf-8');
+  try { fs.chmodSync(ENV_PATH, 0o600); } catch {}
   process.env[key] = value;
 }
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({ origin: [`http://localhost:${process.env.PORT || 3001}`, 'file://'] }));
 app.use(express.json());
 
 // Track active requests by chatId + provider for abort support
@@ -69,6 +70,10 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'chatId is required' });
   }
 
+  if (message.length > 32000) {
+    return res.status(400).json({ error: 'Message too long (max 32000 chars)' });
+  }
+
   // Set up SSE-style streaming headers
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Transfer-Encoding', 'chunked');
@@ -97,9 +102,9 @@ app.post('/api/chat', async (req, res) => {
     } else {
       console.error(`[SERVER] Error in chat ${chatId}:`, err.message);
       if (!res.headersSent) {
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: 'Internal server error' });
       }
-      res.write(`\n\n[Error: ${err.message}]`);
+      res.write(`\n\n[Error: Request failed. Please try again.]`);
     }
   } finally {
     activeRequests.delete(abortKey(chatId, provider));
@@ -148,6 +153,27 @@ app.post('/api/settings/keys', (req, res) => {
 
 // ── Automation routes ───────────────────────────────────────────────────────
 
+function sanitizeAutomationConfig(updates) {
+  const safe = {};
+  if (typeof updates.rssUrl === 'string') {
+    try {
+      const u = new URL(updates.rssUrl);
+      if (u.protocol === 'http:' || u.protocol === 'https:') safe.rssUrl = updates.rssUrl;
+    } catch {}
+  }
+  if (typeof updates.pollIntervalMs === 'number' && updates.pollIntervalMs >= 60000) {
+    safe.pollIntervalMs = Math.floor(updates.pollIntervalMs);
+  }
+  if (Array.isArray(updates.platforms)) {
+    const allowed = ['twitter', 'facebook', 'instagram'];
+    safe.platforms = updates.platforms.filter(p => allowed.includes(p));
+  }
+  if (typeof updates.maxItemsPerCycle === 'number' && updates.maxItemsPerCycle >= 1 && updates.maxItemsPerCycle <= 20) {
+    safe.maxItemsPerCycle = Math.floor(updates.maxItemsPerCycle);
+  }
+  return safe;
+}
+
 // GET /api/automation/status
 app.get('/api/automation/status', (req, res) => {
   res.json(automation.getStatus());
@@ -155,7 +181,7 @@ app.get('/api/automation/status', (req, res) => {
 
 // POST /api/automation/start
 app.post('/api/automation/start', (req, res) => {
-  const result = automation.start(req.body || {});
+  const result = automation.start(sanitizeAutomationConfig(req.body || {}));
   res.json(result);
 });
 
@@ -166,7 +192,7 @@ app.post('/api/automation/stop', (req, res) => {
 
 // POST /api/automation/configure
 app.post('/api/automation/configure', (req, res) => {
-  automation.configure(req.body || {});
+  automation.configure(sanitizeAutomationConfig(req.body || {}));
   res.json({ ok: true, config: automation.getStatus().config });
 });
 

@@ -17,6 +17,9 @@ const modelSelect       = document.getElementById('model-select');
 // ── Chat management ─────────────────────────────────────────────────────────
 
 function generateId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
@@ -302,37 +305,50 @@ function renderJobHistory(jobs) {
     return;
   }
 
-  jobListEl.innerHTML = jobs.slice(0, 30).map(job => {
+  jobListEl.innerHTML = '';
+
+  jobs.slice(0, 30).forEach(job => {
+    const card = document.createElement('div');
+    const safeStatus = escHtml(job.status || 'unknown');
+    const safeType = job.type === 'cycle' ? 'cycle' : 'item';
+    card.className = `job-card ${safeType}-card`;
+
     if (job.type === 'cycle') {
-      return `<div class="job-card cycle-card ${job.status}">
+      card.innerHTML = `
         <div class="job-meta">
           <span class="job-type">Cycle</span>
-          <span class="job-time">${fmtTime(job.startedAt)}</span>
-          <span class="job-badge ${job.status}">${job.status}</span>
+          <span class="job-time">${escHtml(fmtTime(job.startedAt))}</span>
+          <span class="job-badge">${safeStatus}</span>
         </div>
-        <div class="job-body">Found ${job.itemsFound ?? '?'} items · Processed ${job.itemsProcessed ?? 0} new${job.error ? ` · Error: ${job.error}` : ''}</div>
-      </div>`;
+        <div class="job-body">Found ${escHtml(String(job.itemsFound ?? '?'))} items · Processed ${escHtml(String(job.itemsProcessed ?? 0))} new${job.error ? ` · Error: ${escHtml(job.error)}` : ''}</div>
+      `;
+    } else {
+      const platformBits = Object.entries(job.platforms || {}).map(([p, info]) => {
+        const safePlat = escHtml(p);
+        const safeInfoStatus = escHtml(info.status || '');
+        let details = '';
+        if (info.content) {
+          const pre = document.createElement('pre');
+          pre.textContent = info.content;
+          details = `<details><summary>Content</summary>${pre.outerHTML}</details>`;
+        }
+        return `<div class="platform-result"><span class="plat-name">${safePlat}</span><span class="plat-status">${safeInfoStatus}</span>${details}</div>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="job-meta">
+          <span class="job-type">Article</span>
+          <span class="job-time">${escHtml(fmtTime(job.startedAt))}</span>
+          <span class="job-badge">${safeStatus}</span>
+        </div>
+        <div class="job-title">${escHtml(job.title || 'Untitled')}</div>
+        ${job.summary ? `<div class="job-summary">${escHtml(job.summary)}</div>` : ''}
+        ${platformBits}
+      `;
     }
 
-    const platformBits = Object.entries(job.platforms || {}).map(([p, info]) =>
-      `<div class="platform-result ${info.status}">
-        <span class="plat-name">${p}</span>
-        <span class="plat-status">${info.status}</span>
-        ${info.content ? `<details><summary>Content</summary><pre>${escHtml(info.content)}</pre></details>` : ''}
-      </div>`
-    ).join('');
-
-    return `<div class="job-card item-card ${job.status}">
-      <div class="job-meta">
-        <span class="job-type">Article</span>
-        <span class="job-time">${fmtTime(job.startedAt)}</span>
-        <span class="job-badge ${job.status}">${job.status}</span>
-      </div>
-      <div class="job-title">${escHtml(job.title || 'Untitled')}</div>
-      ${job.summary ? `<div class="job-summary">${escHtml(job.summary)}</div>` : ''}
-      ${platformBits}
-    </div>`;
-  }).join('');
+    jobListEl.appendChild(card);
+  });
 }
 
 function fmtTime(iso) {
