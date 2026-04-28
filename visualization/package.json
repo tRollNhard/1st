@@ -1,32 +1,46 @@
 {
-  "name": "neon-visualizer",
+  "name": "smillee",
   "version": "1.0.0",
-  "description": "Neon Visualizer — Spotify playback + TikTok 9:16 template export",
+  "description": "Smillee - music-reactive rainbow character visualizer for Spotify + TikTok",
   "main": "main.js",
   "author": "Jason Clark",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder --win portable",
-    "dist:installer": "electron-builder --win nsis"
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node launch.js",
+    "server:dev": "vite --port 5173",
+    "electron:dev": "node launch.js --dev",
+    "dist": "vite build && electron-builder --win portable",
+    "dist:installer": "vite build && electron-builder --win nsis"
   },
-  "keywords": ["visualizer", "spotify", "tiktok", "electron"],
+  "keywords": [
+    "smillee",
+    "visualizer",
+    "spotify",
+    "tiktok",
+    "electron"
+  ],
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "vite": "^5.4.0"
   },
   "build": {
-    "appId": "com.jasonclark.neonvisualizer",
-    "productName": "Neon Visualizer",
+    "appId": "com.jasonclark.smillee",
+    "productName": "Smillee",
     "asar": true,
     "files": [
       "main.js",
       "index.html",
       "package.json",
+      "src/**",
+      "dist-web/**",
       "build/icon.ico",
       "!.electron-data/**",
       "!.chrome-profile/**",
-      "!dist/**"
+      "!dist/**",
+      "!node_modules/**"
     ],
     "compression": "maximum",
     "directories": {
@@ -35,12 +49,17 @@
     },
     "win": {
       "target": [
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },
     "portable": {
-      "artifactName": "NeonVisualizer-${version}-portable.exe"
+      "artifactName": "Smillee-${version}-portable.exe"
     },
     "nsis": {
       "oneClick": false,
@@ -48,7 +67,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Neon Visualizer"
+      "shortcutName": "Smillee"
     }
   }
 }

@@ -1,0 +1,12 @@
+# IDE / Claude Code project files
+.claude/
+
+# Electron runtime artifacts
+.electron-data/
+.chrome-profile/
+
+# Electron-builder output (packaged app)
+dist/
+
+# Vite cache
+.vite/

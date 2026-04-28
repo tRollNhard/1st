@@ -1,4 +1,9 @@
-// Visualization — standalone Electron app for Spotify + TikTok visuals.
+// Smillee — Music-Reactive Desktop Visualizer
+// Copyright (c) 2026 Jason W Clark (THATdudeAGAIN)
+// All rights reserved. Proprietary software — see COPYRIGHT.txt
+// Contact: jwclarkladymae@gmail.com | GitHub: https://github.com/THATdudeAGAIN
+
+// Electron main process — Smillee standalone app.
 // Captures system audio via loopback (no tab-share picker) and renders
 // a multi-color liquid-drip reactive scene.
 
@@ -12,12 +17,12 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 }
 
-// User-data dir: prefer %APPDATA%\NeonVisualizer (persists across runs of
+// User-data dir: prefer %APPDATA%\Smillee (persists across runs of
 // the portable .exe — extraction temp dir would be wiped on every launch).
 // Fall back to a project-local dir only in development, where the APPDATA
 // path may have restrictive ACLs causing "Access is denied" cache errors.
 try {
-  const appDataDir = path.join(app.getPath('appData'), 'NeonVisualizer');
+  const appDataDir = path.join(app.getPath('appData'), 'Smillee');
   app.setPath('userData', appDataDir);
 } catch (_) {
   app.setPath('userData', path.join(__dirname, '.electron-data'));
@@ -50,7 +55,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     backgroundColor: '#000000',
-    title: 'Neon Visualizer',
+    title: 'Smillee',
     autoHideMenuBar: true,
     ...iconOpt,
     webPreferences: {
@@ -96,7 +101,13 @@ function createWindow() {
   // telemetry, etc.). Only file://, data:, blob:, about: are allowed
   // through. The renderer's CSP already blocks fetch/XHR from the page;
   // this backstops the main process too.
-  const OFFLINE_ALLOW = /^(file|data|blob|about|chrome-extension|devtools):/i;
+  //
+  // DEV EXCEPTION: in development (!app.isPackaged) the Vite dev server
+  // runs at localhost:5173 — we allow that origin so the app can load its
+  // ES modules. No internet traffic is permitted even in dev.
+  const OFFLINE_ALLOW = app.isPackaged
+    ? /^(file|data|blob|about|chrome-extension|devtools):/i
+    : /^(file|data|blob|about|chrome-extension|devtools|http:\/\/localhost|http:\/\/127\.0\.0\.1):/i;
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, cb) => {
     if (OFFLINE_ALLOW.test(details.url)) return cb({ cancel: false });
     console.log('[offline-block]', details.method, details.url);
@@ -160,7 +171,23 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile(path.join(__dirname, 'index.html'));
+
+  // Dev: load from Vite dev server (ES modules served hot).
+  // Prod: load the pre-built dist-web/index.html (all JS bundled, fully offline).
+  const isDev = !app.isPackaged && process.env.SMILLEE_DEV === '1';
+  if (isDev) {
+    win.loadURL('http://localhost:5173');
+  } else {
+    // In non-dev and packaged mode, prefer the Vite-built bundle.
+    // Fall back to raw index.html (src/ ES modules) if dist-web doesn't exist yet
+    // so `npm start` still works before the first `npm run build`.
+    const distHtml = path.join(__dirname, 'dist-web', 'index.html');
+    if (require('fs').existsSync(distHtml)) {
+      win.loadFile(distHtml);
+    } else {
+      win.loadFile(path.join(__dirname, 'index.html'));
+    }
+  }
 }
 
 app.whenReady().then(createWindow);
