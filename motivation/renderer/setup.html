@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motivation — Setup</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .wizard { display: flex; width: 100%; max-width: 720px; gap: 0; min-height: 520px; }
+    .sidebar { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 8px 0; }
+    .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; color: #555; transition: background 0.15s, color 0.15s; }
+    .sidebar-item.active { background: #13131f; color: #b09ffc; }
+    .sidebar-item.done { color: #4ade80; }
+    .sidebar-item.skip { color: #444; }
+    .s-icon { font-size: 16px; width: 20px; text-align: center; }
+    .s-status { margin-left: auto; font-size: 14px; }
+    .panel { flex: 1; padding: 24px 28px; display: none; flex-direction: column; gap: 18px; }
+    .panel.active { display: flex; }
+    .panel-title { font-size: 18px; font-weight: 700; color: #e8e8f0; }
+    .panel-desc { font-size: 13px; color: #666; line-height: 1.6; }
+    .step-action { display: flex; flex-direction: column; gap: 10px; }
+    .input-row { display: flex; gap: 8px; }
+    .key-input { flex: 1; background: #13131f; border: 1px solid #2a2a3e; border-radius: 8px; color: #ccc; font-size: 13px; padding: 10px 14px; font-family: 'Courier New', monospace; }
+    .key-input:focus { outline: none; border-color: #7c6dfa66; }
+    .key-input.saved { border-color: #4ade8033; color: #4ade80; }
+    .btn-open { background: #1e1e30; color: #7c6dfa; border: 1px solid #7c6dfa44; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+    .btn-open:hover { background: #252538; }
+    .btn-save-key { background: linear-gradient(135deg,#7c6dfa,#a855f7); color:#fff; font-size:12px; }
+    .saved-badge { color: #4ade80; font-size: 12px; display: none; align-items: center; gap: 6px; }
+    .saved-badge.show { display: flex; }
+    .skip-link { font-size: 11px; color: #444; cursor: pointer; text-decoration: underline; align-self: flex-start; }
+    .skip-link:hover { color: #666; }
+    .divider { height: 1px; background: #1e1e30; width: 100%; }
+    .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px; }
+    .platform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .platform-card { background: #13131f; border: 1px solid #1e1e30; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .platform-card.connected { border-color: #4ade8033; }
+    .platform-name { font-size: 13px; font-weight: 600; color: #ccc; display: flex; align-items: center; gap: 8px; }
+    .platform-status { font-size: 11px; color: #444; }
+    .platform-status.ok { color: #4ade80; }
+    .btn-connect { background: #1e1e30; border: 1px solid #2a2a3e; color: #7c6dfa; font-size: 11px; padding: 6px 12px; }
+    .btn-connect:hover { background: #252538; }
+    .btn-connect.connected { color: #4ade80; border-color: #4ade8033; cursor: default; }
+    .finish-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 20px 0; }
+    .finish-icon { font-size: 48px; }
+    .finish-title { font-size: 20px; font-weight: 700; color: #e8e8f0; }
+    .finish-sub { font-size: 13px; color: #666; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container" style="padding:24px 20px">
+    <div class="logo" style="margin-bottom:16px">⚡ MOTIVATION SETUP</div>
+
+    <div class="wizard">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-item active" data-step="0"><span class="s-icon">🤖</span>Claude<span class="s-status" id="ss0"></span></div>
+        <div class="sidebar-item" data-step="1"><span class="s-icon">🎬</span>Pexels<span class="s-status" id="ss1"></span></div>
+        <div class="sidebar-item" data-step="2"><span class="s-icon">📱</span>Platforms<span class="s-status" id="ss2"></span></div>
+        <div class="sidebar-item" data-step="3"><span class="s-icon">🎵</span>Music<span class="s-status" id="ss3"></span></div>
+        <div class="sidebar-item" data-step="4"><span class="s-icon">✅</span>Done<span class="s-status" id="ss4"></span></div>
+      </div>
+
+      <!-- Step 0: Anthropic -->
+      <div class="panel active" id="panel0">
+        <div class="panel-title">Claude API Key</div>
+        <div class="panel-desc">Powers the script writing and research. You likely already have this from another project — check your <code style="color:#7c6dfa">BRAIN/.env</code> file.</div>
+        <div class="step-action">
+          <div class="input-row">
+            <input class="key-input" id="input-anthropic" placeholder="sk-ant-api03-..." />
+            <button class="btn btn-open" onclick="openUrl('https://console.anthropic.com/settings/keys')">Get Key →</button>
+          </div>
+          <div class="input-row">
+            <button class="btn btn-save-key" id="save-anthropic" onclick="saveStep('ANTHROPIC_API_KEY','input-anthropic','ss0','save-anthropic','badge-anthropic',0)">Save Key</button>
+            <span class="saved-badge" id="badge-anthropic">✓ Saved</span>
+          </div>
+        </div>
+        <div class="nav-row">
+          <span></span>
+          <button class="btn btn-approve" onclick="goStep(1)">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 1: Pexels -->
+      <div class="panel" id="panel1">
+        <div class="panel-title">Pexels API Key</div>
+        <div class="panel-desc">Free cinematic stock video. Sign up in 30 seconds — no credit card. Gives you 200 free video searches per hour.</div>
+        <div class="step-action">
+          <div class="input-row">
+            <input class="key-input" id="input-pexels" placeholder="Paste your Pexels API key..." />
+            <button class="btn btn-open" onclick="openUrl('https://www.pexels.com/api/')">Get Free Key →</button>
+          </div>
+          <div class="input-row">
+            <button class="btn btn-save-key" onclick="saveStep('PEXELS_API_KEY','input-pexels','ss1',null,'badge-pexels',1)">Save Key</button>
+            <span class="saved-badge" id="badge-pexels">✓ Saved</span>
+          </div>
+        </div>
+        <div class="nav-row">
+          <button class="btn btn-edit" onclick="goStep(0)">← Back</button>
+          <button class="btn btn-approve" onclick="goStep(2)">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Platforms -->
+      <div class="panel" id="panel2">
+        <div class="panel-title">Social Platforms</div>
+        <div class="panel-desc">Connect each platform. Click "Setup →" to open the guide, paste the token back here. You can skip any you don't use.</div>
+        <div class="platform-grid">
+
+          <div class="platform-card" id="card-youtube">
+            <div class="platform-name">▶ YouTube</div>
+            <div class="platform-status" id="ps-youtube">Not connected</div>
+            <input class="key-input" id="input-yt-id" placeholder="Google Client ID" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-yt-secret" placeholder="Google Client Secret" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://console.cloud.google.com/apis/credentials')">Setup →</button>
+              <button class="btn btn-connect" onclick="saveYouTube()">Save</button>
+            </div>
+          </div>
+
+          <div class="platform-card" id="card-linkedin">
+            <div class="platform-name">in LinkedIn</div>
+            <div class="platform-status" id="ps-linkedin">Not connected</div>
+            <input class="key-input" id="input-li-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-li-urn" placeholder="urn:li:person:XXXXX" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://www.linkedin.com/developers/tools/oauth')">Get Token →</button>
+              <button class="btn btn-connect" onclick="saveLinkedIn()">Save</button>
+            </div>
+          </div>
+
+          <div class="platform-card" id="card-tiktok">
+            <div class="platform-name">♪ TikTok</div>
+            <div class="platform-status" id="ps-tiktok">Not connected</div>
+            <input class="key-input" id="input-tt-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-tt-openid" placeholder="Open ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://developers.tiktok.com')">Setup →</button>
+              <button class="btn btn-connect" onclick="saveTikTok()">Save</button>
+            </div>
+          </div>
+
+          <div class="platform-card" id="card-instagram">
+            <div class="platform-name">📷 Instagram</div>
+            <div class="platform-status" id="ps-instagram">Not connected</div>
+            <input class="key-input" id="input-ig-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-ig-id" placeholder="Business Account ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-connect" onclick="openUrl('https://developers.facebook.com')">Setup →</button>
+              <button class="btn btn-connect" onclick="saveInstagram()">Save</button>
+            </div>
+          </div>
+
+        </div>
+        <div class="nav-row">
+          <button class="btn btn-edit" onclick="goStep(1)">← Back</button>
+          <button class="btn btn-approve" onclick="goStep(3)">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Music -->
+      <div class="panel" id="panel3">
+        <div class="panel-title">Dubstep Music</div>
+        <div class="panel-desc">Drop any <code style="color:#7c6dfa">.mp3</code> or <code style="color:#7c6dfa">.wav</code> dubstep tracks into the music folder. The app picks one randomly per video and mixes it at 20% volume. <br><br>Find free tracks at <strong style="color:#b09ffc">Pixabay.com/music</strong> — search "dubstep". Download and drop them in.</div>
+        <div class="step-action">
+          <button class="btn btn-edit" onclick="openUrl('https://pixabay.com/music/search/dubstep/')">Browse Free Dubstep →</button>
+          <button class="btn btn-open" onclick="openMusicFolder()">Open Music Folder</button>
+        </div>
+        <div class="nav-row">
+          <button class="btn btn-edit" onclick="goStep(2)">← Back</button>
+          <button class="btn btn-approve" onclick="goStep(4)">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Done -->
+      <div class="panel" id="panel4">
+        <div class="finish-wrap">
+          <div class="finish-icon">⚡</div>
+          <div class="finish-title">You're all set!</div>
+          <div class="finish-sub">The app runs in your system tray.<br>Every day at 9AM it pops up — review, approve, done.</div>
+          <button class="btn btn-approve" style="width:200px;margin-top:8px" onclick="motivation.setupDone()">Launch App →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const { motivation } = window;
+    let currentStep = 0;
+
+    async function init() {
+      const env = await motivation.getEnv();
+      if (env.ANTHROPIC_API_KEY) markSaved('ss0', 'input-anthropic', 'badge-anthropic', env.ANTHROPIC_API_KEY);
+      if (env.PEXELS_API_KEY) markSaved('ss1', 'input-pexels', 'badge-pexels', env.PEXELS_API_KEY);
+      if (env.YOUTUBE_CLIENT_ID) markPlatform('youtube', true);
+      if (env.LINKEDIN_ACCESS_TOKEN) markPlatform('linkedin', true);
+      if (env.TIKTOK_ACCESS_TOKEN) markPlatform('tiktok', true);
+      if (env.INSTAGRAM_ACCESS_TOKEN) markPlatform('instagram', true);
+    }
+
+    function goStep(n) {
+      document.getElementById('panel' + currentStep).classList.remove('active');
+      document.querySelectorAll('.sidebar-item')[currentStep].classList.remove('active');
+      currentStep = n;
+      document.getElementById('panel' + n).classList.add('active');
+      document.querySelectorAll('.sidebar-item')[n].classList.add('active');
+    }
+
+    async function saveStep(envKey, inputId, ssId, btnId, badgeId, nextStep) {
+      const val = document.getElementById(inputId).value.trim();
+      if (!val) return;
+      await motivation.saveKey(envKey, val);
+      markSaved(ssId, inputId, badgeId, val);
+    }
+
+    function markSaved(ssId, inputId, badgeId, val) {
+      const inp = document.getElementById(inputId);
+      if (inp) { inp.value = val.slice(0, 6) + '••••••••'; inp.classList.add('saved'); }
+      const ss = document.getElementById(ssId);
+      if (ss) ss.textContent = '✓';
+      const badge = document.getElementById(badgeId);
+      if (badge) badge.classList.add('show');
+      document.querySelectorAll('.sidebar-item')[parseInt(ssId.replace('ss',''))].classList.add('done');
+    }
+
+    function markPlatform(name, ok) {
+      const ps = document.getElementById('ps-' + name);
+      const card = document.getElementById('card-' + name);
+      if (ps) { ps.textContent = ok ? '✓ Connected' : 'Not connected'; ps.className = 'platform-status' + (ok ? ' ok' : ''); }
+      if (card && ok) card.classList.add('connected');
+    }
+
+    async function saveYouTube() {
+      const id = document.getElementById('input-yt-id').value.trim();
+      const secret = document.getElementById('input-yt-secret').value.trim();
+      if (!id || !secret) return;
+      await motivation.saveKey('YOUTUBE_CLIENT_ID', id);
+      await motivation.saveKey('YOUTUBE_CLIENT_SECRET', secret);
+      markPlatform('youtube', true);
+    }
+
+    async function saveLinkedIn() {
+      const token = document.getElementById('input-li-token').value.trim();
+      const urn = document.getElementById('input-li-urn').value.trim();
+      if (!token || !urn) return;
+      await motivation.saveKey('LINKEDIN_ACCESS_TOKEN', token);
+      await motivation.saveKey('LINKEDIN_PERSON_URN', urn);
+      markPlatform('linkedin', true);
+    }
+
+    async function saveTikTok() {
+      const token = document.getElementById('input-tt-token').value.trim();
+      const openId = document.getElementById('input-tt-openid').value.trim();
+      if (!token) return;
+      await motivation.saveKey('TIKTOK_ACCESS_TOKEN', token);
+      if (openId) await motivation.saveKey('TIKTOK_OPEN_ID', openId);
+      markPlatform('tiktok', true);
+    }
+
+    async function saveInstagram() {
+      const token = document.getElementById('input-ig-token').value.trim();
+      const id = document.getElementById('input-ig-id').value.trim();
+      if (!token || !id) return;
+      await motivation.saveKey('INSTAGRAM_ACCESS_TOKEN', token);
+      await motivation.saveKey('INSTAGRAM_BUSINESS_ACCOUNT_ID', id);
+      markPlatform('instagram', true);
+    }
+
+    function openUrl(url) { motivation.openUrl(url); }
+
+    function openMusicFolder() {
+      motivation.openUrl('file:///C:/Users/Jason%20W%20Clark/Desktop/claude%20projects/motivation/assets/music');
+    }
+
+    init();
+  </script>
+</body>
+</html>

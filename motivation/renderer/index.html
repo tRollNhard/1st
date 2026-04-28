@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motivation — Daily Post</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Loading -->
+  <div class="container" id="loadingView">
+    <div class="logo">⚡ MOTIVATION</div>
+    <div class="loading-ring"></div>
+    <p class="loading-text">Writing today's script...</p>
+  </div>
+
+  <!-- Prompt -->
+  <div class="container hidden" id="promptView">
+    <div class="logo">⚡ MOTIVATION</div>
+    <div class="topic-badge" id="topicBadge"></div>
+
+    <!-- Pexels thumbnail strip -->
+    <div class="preview-strip" id="previewStrip"></div>
+
+    <div class="script-box">
+      <div class="script-label">TODAY'S SCRIPT</div>
+      <div class="script-text" id="scriptText"></div>
+    </div>
+
+    <div class="meta-row">
+      <span class="meta-pill">🎙 Windows TTS</span>
+      <span class="meta-pill">🎬 Pexels Cinematic</span>
+      <span class="meta-pill">🎵 Dubstep Mix</span>
+      <span class="meta-pill">📱 4 Platforms</span>
+      <span class="meta-pill" style="color:#4ade80;border-color:#4ade8022">$0 / video</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-skip" id="btnSkip">Skip</button>
+      <button class="btn btn-edit" id="btnEdit">Edit Script</button>
+      <button class="btn btn-approve" id="btnApprove">▶ Generate & Post</button>
+    </div>
+
+    <div class="edit-area hidden" id="editArea">
+      <textarea id="editScript" rows="7"></textarea>
+      <button class="btn btn-save" id="btnSave">Save</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="container hidden" id="errorView">
+    <div class="logo">⚡ MOTIVATION</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn btn-edit" onclick="location.reload()">Retry</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

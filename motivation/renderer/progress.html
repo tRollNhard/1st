@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motivation — Generating</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="logo">⚡ MOTIVATION</div>
+    <div class="step-list">
+      <div class="step" id="step-voice">
+        <span class="step-icon">🎙</span>
+        <div><div class="step-label">Voiceover</div><div class="step-detail" id="d-voice">Generating with Windows TTS...</div></div>
+      </div>
+      <div class="step" id="step-video">
+        <span class="step-icon">🎬</span>
+        <div><div class="step-label">Video Clips</div><div class="step-detail" id="d-video">Fetching cinematic footage from Pexels...</div></div>
+      </div>
+      <div class="step" id="step-assemble">
+        <span class="step-icon">🎵</span>
+        <div><div class="step-label">Assemble</div><div class="step-detail" id="d-assemble">Mixing video, voice, music & captions...</div></div>
+      </div>
+      <div class="step" id="step-publish">
+        <span class="step-icon">📱</span>
+        <div><div class="step-label">Publishing</div><div class="step-detail" id="d-publish">Posting to all platforms...</div></div>
+      </div>
+    </div>
+    <div class="done-msg hidden" id="doneMsg"></div>
+  </div>
+
+  <script>
+    const { motivation } = window;
+
+    motivation.onProgress(({ step, detail }) => {
+      const el = document.getElementById('step-' + step);
+      if (!el) return;
+      document.querySelectorAll('.step.active').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      const d = document.getElementById('d-' + step);
+      if (d && detail) d.textContent = detail;
+    });
+
+    motivation.onDone(() => {
+      document.querySelectorAll('.step').forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
+      const msg = document.getElementById('doneMsg');
+      msg.textContent = '✓ Posted to all platforms!';
+      msg.classList.remove('hidden');
+    });
+
+    motivation.onError((msg) => {
+      document.querySelectorAll('.step.active').forEach(s => s.classList.add('failed'));
+      const el = document.getElementById('doneMsg');
+      el.textContent = '✗ ' + msg;
+      el.style.color = '#f87171';
+      el.classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>
