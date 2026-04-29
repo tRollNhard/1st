@@ -86,21 +86,26 @@ app.whenReady().then(() => {
   if (!fs.existsSync(envPath)) fs.copyFileSync(path.join(__dirname, '.env.example'), envPath);
 
   const miss = envHelper.missing();
-  if (miss.anthropic) { openSetup(); return; }
+  // Only hard-block on first boot if nothing at all is configured
+  if (miss.pexels) { openSetup(); return; }
   if (process.argv.includes('--dev')) { openPrompt(); }
 
-  // 7:15 AM — daily quote
+  // 7:15 AM — daily quote (free, no Anthropic key needed)
   cron.schedule(`${QUOTE_MIN} ${QUOTE_HOUR} * * *`, () => {
     const m = envHelper.missing();
-    if (m.anthropic) { openSetup(); return; }
+    if (m.pexels) { openSetup(); return; }
     openQuote();
     notify('⚡ Motivation', 'Time for your daily quote post! Review and approve.');
   });
 
-  // 9:00 AM — daily video
+  // 9:00 AM — daily video (needs Anthropic for script writing)
   cron.schedule(`${VIDEO_MIN} ${VIDEO_HOUR} * * *`, () => {
     const m = envHelper.missing();
-    if (m.anthropic) { openSetup(); return; }
+    if (m.anthropic) {
+      notify('⚡ Motivation', 'Add your Anthropic API key in Setup to enable video posts.');
+      return;
+    }
+    if (m.pexels) { openSetup(); return; }
     openPrompt();
     notify('⚡ Motivation', 'Time for your daily video! Review and approve.');
   });
@@ -121,13 +126,13 @@ function buildTrayMenu() {
 
 function handleVideoTray() {
   const m = envHelper.missing();
-  if (m.anthropic) { openSetup(); return; }
+  if (m.anthropic || m.pexels) { openSetup(); return; }
   openPrompt();
 }
 
 function handleQuoteTray() {
   const m = envHelper.missing();
-  if (m.anthropic) { openSetup(); return; }
+  if (m.pexels) { openSetup(); return; }
   openQuote();
 }
 
