@@ -70,8 +70,7 @@ async function getDailyQuote() {
   try {
     const data = await fetchJson('https://zenquotes.io/api/random');
     if (data?.[0]?.q && data[0].q !== 'Too many requests. Obtain an auth key for unlimited access.') {
-      const raw = { text: data[0].q, author: data[0].a || '' };
-      return await changeOneWord(raw);
+      return { text: data[0].q, author: data[0].a || '' };
     }
   } catch (e) {
     console.warn('[QUOTEFETCH] zenquotes fetch failed:', e.message);

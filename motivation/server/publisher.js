@@ -276,4 +276,4 @@ async function publishAllImage(imagePath, meta) {
   });
 }
 
-module.exports = { publishAll, publishAllImage };
+module.exports = { publishAll, publishAllImage, loadTokens, saveTokens };

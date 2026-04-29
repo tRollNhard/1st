@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('motivation', {
   getEnv: () => ipcRenderer.invoke('get-env'),
   setupDone: () => ipcRenderer.invoke('open-setup-done'),
   startOAuth: (url) => ipcRenderer.invoke('start-oauth', url),
+  connectYouTube: () => ipcRenderer.invoke('connect-youtube'),
+  connectLinkedIn: (data) => ipcRenderer.invoke('connect-linkedin', data),
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
 
   // ── Video pipeline ─────────────────────────────────────────────────────────

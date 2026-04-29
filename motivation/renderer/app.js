@@ -1,4 +1,4 @@
-const { motivation } = window;
+const api = window.motivation;
 
 const views = { loading: 'loadingView', prompt: 'promptView', error: 'errorView' };
 let data = null;
@@ -10,7 +10,7 @@ function show(name) {
 
 // Boot
 (async () => {
-  const result = await motivation.researchTopic();
+  const result = await api.researchTopic();
   if (result.error) {
     document.getElementById('errorMsg').textContent = result.error;
     show('error'); return;
@@ -37,7 +37,7 @@ function show(name) {
 // Approve
 document.getElementById('btnApprove').addEventListener('click', async () => {
   ['btnApprove','btnEdit','btnSkip'].forEach(id => document.getElementById(id).disabled = true);
-  await motivation.approvePost({ script: data.script, videoIds: data.videoIds, topic: data.topic, caption: data.caption, title: data.title });
+  await api.approvePost({ script: data.script, videoIds: data.videoIds, topic: data.topic, caption: data.caption, title: data.title });
 });
 
 // Edit
@@ -53,4 +53,4 @@ document.getElementById('btnSave').addEventListener('click', () => {
 });
 
 // Skip
-document.getElementById('btnSkip').addEventListener('click', () => motivation.skipToday());
+document.getElementById('btnSkip').addEventListener('click', () => api.skipToday());

@@ -11,17 +11,17 @@
 
     <div class="step-list">
       <div class="step" id="step-card">
-        <span class="step-icon">🎨</span>
+        <span class="step-icon">🎬</span>
         <div>
-          <div class="step-label">Quote Card</div>
-          <div class="step-detail" id="d-card">Generating cinematic card with Pexels background...</div>
+          <div class="step-label">Quote Video</div>
+          <div class="step-detail" id="d-card">Generating cinematic video with Pexels background...</div>
         </div>
       </div>
       <div class="step" id="step-publish">
         <span class="step-icon">📱</span>
         <div>
           <div class="step-label">Publishing</div>
-          <div class="step-detail" id="d-publish">Posting to Instagram, TikTok, LinkedIn...</div>
+          <div class="step-detail" id="d-publish">Posting to TikTok, Instagram, LinkedIn, YouTube...</div>
         </div>
       </div>
     </div>
@@ -30,8 +30,6 @@
   </div>
 
   <script>
-    const { motivation } = window;
-
     motivation.onProgress(({ step, detail }) => {
       const el = document.getElementById('step-' + step);
       if (!el) return;

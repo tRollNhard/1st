@@ -122,21 +122,24 @@
           <div class="platform-card" id="card-youtube">
             <div class="platform-name">▶ YouTube <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
             <div class="platform-status" id="ps-youtube">Not connected</div>
+            <div style="font-size:10px;color:#555;line-height:1.5;margin-bottom:4px">Create a project at Google Cloud Console → enable YouTube Data API v3 → create OAuth 2.0 credentials → add <code style="color:#7c6dfa">http://localhost:3456/oauth/youtube</code> as redirect URI.</div>
             <input class="key-input" id="input-yt-id" placeholder="Google Client ID" style="font-size:11px;padding:7px 10px" />
             <input class="key-input" id="input-yt-secret" placeholder="Google Client Secret" style="font-size:11px;padding:7px 10px;margin-top:4px" />
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="btn btn-connect" onclick="openUrl('https://console.cloud.google.com/apis/credentials')">Setup →</button>
-              <button class="btn btn-connect" onclick="saveYouTube()">Save</button>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn btn-connect" onclick="openUrl('https://console.cloud.google.com/apis/credentials')">Cloud Console →</button>
+              <button class="btn btn-connect" id="btn-yt-auth" onclick="authorizeYouTube()">Save & Authorize</button>
             </div>
+            <div class="saved-badge" id="badge-youtube" style="margin-top:4px">✓ Connected</div>
           </div>
 
           <div class="platform-card" id="card-instagram">
             <div class="platform-name">📷 Instagram <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
             <div class="platform-status" id="ps-instagram">Not connected</div>
-            <input class="key-input" id="input-ig-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
-            <input class="key-input" id="input-ig-id" placeholder="Business Account ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="btn btn-connect" onclick="openUrl('https://developers.facebook.com')">Setup →</button>
+            <div style="font-size:10px;color:#555;line-height:1.5;margin-bottom:4px">Requires a Meta Business account. Create a Facebook app → add Instagram Graph API → generate a long-lived token.</div>
+            <input class="key-input" id="input-ig-token" placeholder="Long-lived Access Token" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-ig-id" placeholder="Instagram Business Account ID" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn btn-connect" onclick="openUrl('https://developers.facebook.com/apps/')">Facebook Apps →</button>
               <button class="btn btn-connect" onclick="saveInstagram()">Save</button>
             </div>
           </div>
@@ -144,12 +147,14 @@
           <div class="platform-card" id="card-linkedin">
             <div class="platform-name">in LinkedIn <span style="font-size:10px;color:#444;font-weight:400;margin-left:4px">optional</span></div>
             <div class="platform-status" id="ps-linkedin">Not connected</div>
-            <input class="key-input" id="input-li-token" placeholder="Access Token" style="font-size:11px;padding:7px 10px" />
-            <input class="key-input" id="input-li-urn" placeholder="urn:li:person:XXXXX" style="font-size:11px;padding:7px 10px;margin-top:4px" />
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="btn btn-connect" onclick="openUrl('https://www.linkedin.com/developers/tools/oauth')">Get Token →</button>
-              <button class="btn btn-connect" onclick="saveLinkedIn()">Save</button>
+            <div style="font-size:10px;color:#555;line-height:1.5;margin-bottom:4px">Create a LinkedIn app → add <em>Sign In with LinkedIn</em> + <em>Share on LinkedIn</em> products → add <code style="color:#7c6dfa">http://localhost:3456/oauth/linkedin</code> as redirect URI.</div>
+            <input class="key-input" id="input-li-id" placeholder="LinkedIn App Client ID" style="font-size:11px;padding:7px 10px" />
+            <input class="key-input" id="input-li-secret" placeholder="LinkedIn App Client Secret" style="font-size:11px;padding:7px 10px;margin-top:4px" />
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn btn-connect" onclick="openUrl('https://www.linkedin.com/developers/apps/')">LinkedIn Apps →</button>
+              <button class="btn btn-connect" id="btn-li-auth" onclick="authorizeLinkedIn()">Save & Authorize</button>
             </div>
+            <div class="saved-badge" id="badge-linkedin" style="margin-top:4px">✓ Connected</div>
           </div>
 
         </div>
@@ -187,15 +192,14 @@
   </div>
 
   <script>
-    const { motivation } = window;
     let currentStep = 0;
 
     async function init() {
       const env = await motivation.getEnv();
       if (env.ANTHROPIC_API_KEY) markSaved('ss0', 'input-anthropic', 'badge-anthropic', env.ANTHROPIC_API_KEY);
       if (env.PEXELS_API_KEY) markSaved('ss1', 'input-pexels', 'badge-pexels', env.PEXELS_API_KEY);
-      if (env.YOUTUBE_CLIENT_ID) markPlatform('youtube', true);
-      if (env.LINKEDIN_ACCESS_TOKEN) markPlatform('linkedin', true);
+      if (env.YOUTUBE_CLIENT_ID) { markPlatform('youtube', true); document.getElementById('badge-youtube').classList.add('show'); }
+      if (env.LINKEDIN_ACCESS_TOKEN) { markPlatform('linkedin', true); document.getElementById('badge-linkedin').classList.add('show'); }
       if (env.TIKTOK_ACCESS_TOKEN) markPlatform('tiktok', true);
       if (env.INSTAGRAM_ACCESS_TOKEN) markPlatform('instagram', true);
     }
@@ -232,22 +236,40 @@
       if (card && ok) card.classList.add('connected');
     }
 
-    async function saveYouTube() {
+    async function authorizeYouTube() {
       const id = document.getElementById('input-yt-id').value.trim();
       const secret = document.getElementById('input-yt-secret').value.trim();
-      if (!id || !secret) return;
+      if (!id || !secret) { alert('Paste your Client ID and Secret first.'); return; }
       await motivation.saveKey('YOUTUBE_CLIENT_ID', id);
       await motivation.saveKey('YOUTUBE_CLIENT_SECRET', secret);
-      markPlatform('youtube', true);
+      const btn = document.getElementById('btn-yt-auth');
+      btn.textContent = 'Waiting for browser…'; btn.disabled = true;
+      try {
+        await motivation.connectYouTube();
+        markPlatform('youtube', true);
+        document.getElementById('badge-youtube').classList.add('show');
+        btn.textContent = '✓ Authorized';
+      } catch (e) {
+        btn.textContent = 'Save & Authorize'; btn.disabled = false;
+        alert('YouTube auth failed: ' + e.message);
+      }
     }
 
-    async function saveLinkedIn() {
-      const token = document.getElementById('input-li-token').value.trim();
-      const urn = document.getElementById('input-li-urn').value.trim();
-      if (!token || !urn) return;
-      await motivation.saveKey('LINKEDIN_ACCESS_TOKEN', token);
-      await motivation.saveKey('LINKEDIN_PERSON_URN', urn);
-      markPlatform('linkedin', true);
+    async function authorizeLinkedIn() {
+      const id = document.getElementById('input-li-id').value.trim();
+      const secret = document.getElementById('input-li-secret').value.trim();
+      if (!id || !secret) { alert('Paste your LinkedIn Client ID and Secret first.'); return; }
+      const btn = document.getElementById('btn-li-auth');
+      btn.textContent = 'Waiting for browser…'; btn.disabled = true;
+      try {
+        await motivation.connectLinkedIn({ clientId: id, clientSecret: secret });
+        markPlatform('linkedin', true);
+        document.getElementById('badge-linkedin').classList.add('show');
+        btn.textContent = '✓ Authorized';
+      } catch (e) {
+        btn.textContent = 'Save & Authorize'; btn.disabled = false;
+        alert('LinkedIn auth failed: ' + e.message);
+      }
     }
 
     async function saveTikTok() {

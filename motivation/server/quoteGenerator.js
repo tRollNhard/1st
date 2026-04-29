@@ -15,13 +15,12 @@ async function run({ text, author }, onProgress) {
   const outputDir = path.join(__dirname, '..', 'output', `quote_${jobId}`);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  onProgress('card', 'Generating quote card...');
-  const cardPath = await quotecard.generateQuoteCard({ text, author }, outputDir);
+  onProgress('card', 'Generating quote video...');
+  const videoPath = await quotecard.generateQuoteCard({ text, author }, outputDir);
 
   onProgress('publish', 'Posting to all platforms...');
-  const results = await publisher.publishAllImage(cardPath, {
-    caption: `"${text}" ${author ? '— ' + author : ''}\n\n#motivation #quotes #mindset #inspiration #daily`,
-  });
+  const caption = `"${text}" ${author ? '— ' + author : ''}\n\n#motivation #quotes #mindset #inspiration #daily`;
+  const results = await publisher.publishAll(videoPath, { title: 'Daily Quote', caption });
 
   const summary = results.map(r => r.ok ? `✓ ${r.platform}` : `✗ ${r.platform}`).join('  ');
   onProgress('publish', summary);
@@ -29,7 +28,7 @@ async function run({ text, author }, onProgress) {
   const allFailed = results.every(r => !r.ok);
   if (allFailed) throw new Error('All platforms failed. Check tokens in Setup.');
 
-  return { cardPath, results };
+  return { videoPath, results };
 }
 
 module.exports = { researchQuote, run };

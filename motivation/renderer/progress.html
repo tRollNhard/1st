@@ -30,8 +30,6 @@
   </div>
 
   <script>
-    const { motivation } = window;
-
     motivation.onProgress(({ step, detail }) => {
       const el = document.getElementById('step-' + step);
       if (!el) return;

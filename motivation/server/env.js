@@ -30,10 +30,13 @@ function save(key, value) {
   process.env[key] = value;
 }
 
+const PLACEHOLDERS = new Set(['', 'your-api-key-here', 'your_api_key_here']);
+function isBlank(v) { return !v || PLACEHOLDERS.has(v.trim()); }
+
 function missing() {
   const env = readAll();
   return {
-    anthropic: !env.ANTHROPIC_API_KEY,
+    anthropic: isBlank(env.ANTHROPIC_API_KEY),
     pexels:    !env.PEXELS_API_KEY,
     youtube:   !env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET,
     linkedin:  !env.LINKEDIN_ACCESS_TOKEN || !env.LINKEDIN_PERSON_URN,

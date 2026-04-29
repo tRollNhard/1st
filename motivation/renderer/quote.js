@@ -1,4 +1,4 @@
-const { motivation } = window;
+const api = window.motivation;
 
 const views = { loading: 'loadingView', prompt: 'promptView', error: 'errorView' };
 let data = null;
@@ -9,7 +9,7 @@ function show(name) {
 }
 
 (async () => {
-  const result = await motivation.researchQuote();
+  const result = await api.researchQuote();
   if (result.error) {
     document.getElementById('errorMsg').textContent = result.error;
     show('error'); return;
@@ -22,7 +22,7 @@ function show(name) {
 
 document.getElementById('btnApprove').addEventListener('click', async () => {
   ['btnApprove','btnEdit','btnSkip'].forEach(id => document.getElementById(id).disabled = true);
-  await motivation.approveQuote({ text: data.text, author: data.author });
+  await api.approveQuote({ text: data.text, author: data.author });
 });
 
 document.getElementById('btnEdit').addEventListener('click', () => {
@@ -39,4 +39,4 @@ document.getElementById('btnSave').addEventListener('click', () => {
   document.getElementById('editArea').classList.add('hidden');
 });
 
-document.getElementById('btnSkip').addEventListener('click', () => motivation.skipQuote());
+document.getElementById('btnSkip').addEventListener('click', () => api.skipQuote());

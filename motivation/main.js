@@ -4,9 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const cron = require('node-cron');
+const axios = require('axios');
+const { google } = require('googleapis');
 const envHelper = require('./server/env');
 const generator = require('./server/generator');
 const quoteGenerator = require('./server/quoteGenerator');
+const { loadTokens, saveTokens } = require('./server/publisher');
 
 // Auto-borrow ANTHROPIC_API_KEY from parent BRAIN project if not set locally
 function syncParentKey() {
@@ -196,6 +199,80 @@ ipcMain.handle('start-oauth', (_, url) => {
 });
 
 ipcMain.handle('open-url', (_, url) => shell.openExternal(url));
+
+// ─── IPC: YouTube OAuth (full token exchange) ─────────────────────────────────
+ipcMain.handle('connect-youtube', async () => {
+  const env = envHelper.readAll();
+  if (!env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET) {
+    throw new Error('Save your Google Client ID and Secret first.');
+  }
+  const REDIRECT = 'http://localhost:3456/oauth/youtube';
+  const oauth2 = new google.auth.OAuth2(env.YOUTUBE_CLIENT_ID, env.YOUTUBE_CLIENT_SECRET, REDIRECT);
+  const authUrl = oauth2.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/youtube.upload'],
+    prompt: 'consent',
+  });
+
+  const code = await new Promise((resolve, reject) => {
+    if (oauthServer) oauthServer.close();
+    oauthServer = http.createServer((req, res) => {
+      const u = new URL(req.url, 'http://localhost:3456');
+      if (u.pathname === '/oauth/youtube') {
+        const c = u.searchParams.get('code');
+        res.end('<h2 style="font-family:sans-serif;padding:40px;color:#7c6dfa">YouTube connected! Close this tab.</h2>');
+        oauthServer.close(); oauthServer = null;
+        resolve(c);
+      }
+    }).listen(3456, () => shell.openExternal(authUrl));
+    setTimeout(() => { oauthServer?.close(); oauthServer = null; reject(new Error('OAuth timeout')); }, 120000);
+  });
+
+  const { tokens } = await oauth2.getToken(code);
+  const saved = loadTokens();
+  saved.youtube = tokens;
+  saveTokens(saved);
+  return true;
+});
+
+// ─── IPC: LinkedIn OAuth (token exchange + auto-fetch URN) ───────────────────
+ipcMain.handle('connect-linkedin', async (_, { clientId, clientSecret }) => {
+  if (!clientId || !clientSecret) throw new Error('Client ID and Secret are required.');
+  const REDIRECT = 'http://localhost:3456/oauth/linkedin';
+  const state = Math.random().toString(36).slice(2);
+  const scope = 'openid profile w_member_social';
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT)}&state=${state}&scope=${encodeURIComponent(scope)}`;
+
+  const code = await new Promise((resolve, reject) => {
+    if (oauthServer) oauthServer.close();
+    oauthServer = http.createServer((req, res) => {
+      const u = new URL(req.url, 'http://localhost:3456');
+      if (u.pathname === '/oauth/linkedin') {
+        const c = u.searchParams.get('code');
+        res.end('<h2 style="font-family:sans-serif;padding:40px;color:#7c6dfa">LinkedIn connected! Close this tab.</h2>');
+        oauthServer.close(); oauthServer = null;
+        resolve(c);
+      }
+    }).listen(3456, () => shell.openExternal(authUrl));
+    setTimeout(() => { oauthServer?.close(); oauthServer = null; reject(new Error('OAuth timeout')); }, 120000);
+  });
+
+  const tokenRes = await axios.post(
+    'https://www.linkedin.com/oauth/v2/accessToken',
+    new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT, client_id: clientId, client_secret: clientSecret }).toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+  const accessToken = tokenRes.data.access_token;
+
+  const profile = await axios.get('https://api.linkedin.com/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const personUrn = `urn:li:person:${profile.data.sub}`;
+
+  envHelper.save('LINKEDIN_ACCESS_TOKEN', accessToken);
+  envHelper.save('LINKEDIN_PERSON_URN', personUrn);
+  return { personUrn };
+});
 
 function notify(title, body) {
   if (Notification.isSupported()) new Notification({ title, body }).show();
