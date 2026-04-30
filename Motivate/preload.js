@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('motivation', {
   connectYouTube: () => ipcRenderer.invoke('connect-youtube'),
   connectLinkedIn: (data) => ipcRenderer.invoke('connect-linkedin', data),
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
+  openMusicFolder: () => ipcRenderer.invoke('open-music-folder'),
 
   // ── Video pipeline ─────────────────────────────────────────────────────────
   researchTopic: () => ipcRenderer.invoke('research-topic'),

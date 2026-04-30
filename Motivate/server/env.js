@@ -37,11 +37,11 @@ function missing() {
   const env = readAll();
   return {
     anthropic: isBlank(env.ANTHROPIC_API_KEY),
-    pexels:    !env.PEXELS_API_KEY,
-    youtube:   !env.YOUTUBE_CLIENT_ID || !env.YOUTUBE_CLIENT_SECRET,
-    linkedin:  !env.LINKEDIN_ACCESS_TOKEN || !env.LINKEDIN_PERSON_URN,
-    tiktok:    !env.TIKTOK_ACCESS_TOKEN,
-    instagram: !env.INSTAGRAM_ACCESS_TOKEN || !env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
+    pexels:    isBlank(env.PEXELS_API_KEY),
+    youtube:   isBlank(env.YOUTUBE_CLIENT_ID) || isBlank(env.YOUTUBE_CLIENT_SECRET),
+    linkedin:  isBlank(env.LINKEDIN_ACCESS_TOKEN) || isBlank(env.LINKEDIN_PERSON_URN),
+    tiktok:    isBlank(env.TIKTOK_ACCESS_TOKEN),
+    instagram: isBlank(env.INSTAGRAM_ACCESS_TOKEN) || isBlank(env.INSTAGRAM_BUSINESS_ACCOUNT_ID),
   };
 }
 

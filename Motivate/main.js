@@ -204,6 +204,7 @@ ipcMain.handle('start-oauth', (_, url) => {
 });
 
 ipcMain.handle('open-url', (_, url) => shell.openExternal(url));
+ipcMain.handle('open-music-folder', () => shell.openPath(path.join(__dirname, 'assets', 'music')));
 
 // ─── IPC: YouTube OAuth (full token exchange) ─────────────────────────────────
 ipcMain.handle('connect-youtube', async () => {
