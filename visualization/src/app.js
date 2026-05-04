@@ -244,6 +244,12 @@ window.addEventListener('beforeunload', () => {
 // ── Render state ──────────────────────────────────────────────────────────────
 let lastTime = 0;
 
+// Firework cadence — beat-aligned; fires the next beat after fwGapMs has elapsed.
+// Aim: 1 firework every 2.5 s on average.  Occasional double-pop on huge beats.
+let fwLastMs = 0;
+let fwGapMs  = 2200 + Math.random() * 800;
+const FW_MIN_GAP = 1900;
+
 // ── Main animation frame (audio active) ──────────────────────────────────────
 function frame(nowMs) {
   if (!audio.started) return;   // guard: idle loop took over
@@ -265,12 +271,35 @@ function frame(nowMs) {
   // Spawn ripple on beat
   if (beat) fx.spawnRipple(Math.min(1, 0.4 + beatStrength * 0.3), hueFor(Math.floor(Math.random() * 8)));
 
+  // Lightning on harder beats — limit to ~one strike per 600 ms so it stays dramatic.
+  if (beat && beatStrength > 0.55) fx.spawnLightning(drawCx, drawCy, rectW, rectH, beatStrength);
+
+  // Beat-snapped fireworks: fires the FIRST beat that lands after fwGapMs has elapsed.
+  // If no beat for too long, fire on the next idle frame so silent passages still pop.
+  const sinceFw = now - fwLastMs;
+  if (fwLastMs === 0 || (beat && sinceFw >= fwGapMs) || (!beat && sinceFw >= fwGapMs + 1100)) {
+    if (sinceFw >= FW_MIN_GAP) {
+      const fxw = rectW, fyh = rectH;
+      const fwX = rectX + fxw * (0.18 + Math.random() * 0.64);
+      const fwY = rectY + fyh * (0.16 + Math.random() * 0.50);
+      fx.spawnFirework(fwX, fwY);
+      // Occasional double-pop on a strong beat
+      if (beat && beatStrength > 0.85 && Math.random() < 0.45) {
+        const fwX2 = rectX + fxw * (0.18 + Math.random() * 0.64);
+        const fwY2 = rectY + fyh * (0.16 + Math.random() * 0.50);
+        fx.spawnFirework(fwX2, fwY2);
+      }
+      fwLastMs = now;
+      fwGapMs  = 2200 + Math.random() * 800;     // 2.2 – 3.0 s next gap
+    }
+  }
+
   // Draw Smillee body
   const { bodyR, drawCx: cx, drawCy: cy } = renderer.drawFrame(t, dt, bass, mid, high, flash, beat, beatStrength);
 
   // Draw FX layer (on top of body, inherits main ctx)
   fx.drawFrame(renderer.ctx, t, dt, bass, mid, high, flash, beat, beatStrength,
-               bodyR, cx, cy, rectX, rectY, rectW, rectH);
+               bodyR, cx, cy, rectX, rectY, rectW, rectH, audio.freq);
 
   // Dispatch plugin frame hooks
   dispatchFrame(renderer.ctx, { t, dt, bass, mid, high, flash, beat, beatStrength, bodyR, drawCx: cx, drawCy: cy });

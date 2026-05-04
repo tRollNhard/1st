@@ -30,11 +30,13 @@ export class SmileeRenderer {
 
   // ── Beat response ─────────────────────────────────────────────────────────
   onBeat(beatStrength) {
-    this.eyeScale   = 1.0 + Math.min(1.10, beatStrength * 0.72); this.eyeVel   = 0;
-    this.smileScale = 1.0 + Math.min(0.80, beatStrength * 0.58); this.smileVel = 0;
-    this.bounceVY   = -beatStrength * 110;
-    this.sqX  = 1.0 + Math.min(0.32, beatStrength * 0.20);
-    this.sqY  = 1.0 - Math.min(0.24, beatStrength * 0.16);
+    // Punchier snap: eyes pop wider, smile stretches further, body launches
+    // upward and squashes harder — every beat should feel landed, not hinted.
+    this.eyeScale   = 1.0 + Math.min(1.32, beatStrength * 0.92); this.eyeVel   = 0;
+    this.smileScale = 1.0 + Math.min(1.05, beatStrength * 0.78); this.smileVel = 0;
+    this.bounceVY   = -beatStrength * 165;
+    this.sqX  = 1.0 + Math.min(0.42, beatStrength * 0.28);
+    this.sqY  = 1.0 - Math.min(0.32, beatStrength * 0.22);
     this.sqXV = 0; this.sqYV = 0;
   }
 
