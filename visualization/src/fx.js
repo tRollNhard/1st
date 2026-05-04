@@ -1,5 +1,6 @@
-// Smillee — FXEngine: drip particles, beat ripples, high-freq sparkle rays,
-//                     lightning bolts, multi-color fireworks
+// Smillee — FXEngine: backdrop nebula, spectrum wreath, drip particles,
+//                     beat ripples, high-freq sparkle rays, lightning bolts,
+//                     multi-color fireworks
 // Copyright (c) 2026 Jason W Clark (THATdudeAGAIN) — All rights reserved.
 
 import { hsla, hueFor, curl, DPR, SMILE_N, SMILE_HUES } from './utils.js';

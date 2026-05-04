@@ -250,6 +250,13 @@ let fwLastMs = 0;
 let fwGapMs  = 2200 + Math.random() * 800;
 const FW_MIN_GAP = 1900;
 
+// Lightning cadence — at most one strike per LIGHTNING_MIN_MS so dense drum
+// passages don't reduce the strike to background noise. Hard beats (>0.85)
+// can override and trigger a follow-up strike at half that gap.
+let lightningLastMs   = 0;
+const LIGHTNING_MIN_MS      = 600;
+const LIGHTNING_HARD_MIN_MS = 300;
+
 // ── Main animation frame (audio active) ──────────────────────────────────────
 function frame(nowMs) {
   if (!audio.started) return;   // guard: idle loop took over
@@ -272,7 +279,15 @@ function frame(nowMs) {
   if (beat) fx.spawnRipple(Math.min(1, 0.4 + beatStrength * 0.3), hueFor(Math.floor(Math.random() * 8)));
 
   // Lightning on harder beats — limit to ~one strike per 600 ms so it stays dramatic.
-  if (beat && beatStrength > 0.55) fx.spawnLightning(drawCx, drawCy, rectW, rectH, beatStrength);
+  // Hard beats (>0.85) get a tighter 300 ms gate so a real impact moment can land twice.
+  if (beat && beatStrength > 0.55) {
+    const sinceL = now - lightningLastMs;
+    const gate   = beatStrength > 0.85 ? LIGHTNING_HARD_MIN_MS : LIGHTNING_MIN_MS;
+    if (sinceL >= gate) {
+      fx.spawnLightning(drawCx, drawCy, rectW, rectH, beatStrength);
+      lightningLastMs = now;
+    }
+  }
 
   // Beat-snapped fireworks: fires the FIRST beat that lands after fwGapMs has elapsed.
   // If no beat for too long, fire on the next idle frame so silent passages still pop.
