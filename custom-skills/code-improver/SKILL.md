@@ -3,6 +3,7 @@ name: code-improver
 description: Always-active code review skill. Whenever the user shares code — pasted, referenced by file path, or implied by a task — scan it for readability, performance, and best-practice issues. For each issue, explain *why* it matters, show the current snippet, and provide an improved version. Applies to in-chat review, Cowork sessions, and standalone CLI use via `npm run review`.
 always_active: true
 version: 1.0
+license: MIT
 ---
 
 # Code Improver — Always-Active Review Skill

@@ -1,5 +1,7 @@
 ---
 name: bt-device-manager
+version: 1.0
+license: MIT
 description: >
   A skill for generating a complete Bluetooth Device Manager system — a multi-device
   Bluetooth control hub that uses Wi-Fi agents to let one device (phone, PC, or tablet)

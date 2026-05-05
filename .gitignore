@@ -162,10 +162,12 @@ spotify-mcp/.certs/
 # Local Claude settings
 .claude/settings.local.json
 .claude/settings.json
-
 # Session handoff notes (future files only — already-tracked next.md / next1.md
 # remain tracked; this rule prevents next2.md, next3.md, etc. from being
 # auto-added by accident).
 next*.md
 !next.md
 !next1.md
+
+# gh skill install target (third-party skills installed locally)
+.agents/

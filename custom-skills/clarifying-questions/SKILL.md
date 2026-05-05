@@ -3,6 +3,7 @@ name: clarifying-questions
 description: Always-active skill. Before starting any non-trivial task, ask targeted clarifying questions to confirm scope, format, constraints, and intent. Prevents wasted work from wrong assumptions.
 always_active: true
 version: 1.0
+license: MIT
 ---
 
 # Clarifying Questions Skill
