@@ -31,15 +31,30 @@ TOP_N = 3
 
 # ── SKILL SCANNING ──────────────────────────────────────────────────────────
 def find_all_skill_mds() -> list[pathlib.Path]:
-    """Return every SKILL.md path across all known locations."""
-    found = []
+    """Return every SKILL.md path across all known locations.
 
-    search_dirs = [SESSIONS_ROOT, CUSTOM_SKILLS, CLAUDE_SKILLS,
-                   USER_CLAUDE_SKILLS, GH_AGENTS_SKILLS, SD_CARD_SKILLS]
+    Search order is precedence: project-local skills win over user-global,
+    which win over SD card. Symlinks and same-physical-file collisions are
+    dedup'd by resolved path. Same-name skills at different paths are kept
+    (callers decide which wins by name, e.g. via load order).
+    """
+    found = []
+    seen_paths: set[pathlib.Path] = set()
+
+    search_dirs = [CUSTOM_SKILLS, CLAUDE_SKILLS, GH_AGENTS_SKILLS,
+                   USER_CLAUDE_SKILLS, SESSIONS_ROOT, SD_CARD_SKILLS]
 
     for d in search_dirs:
         if d.exists():
-            found.extend(d.rglob("SKILL.md"))
+            for p in d.rglob("SKILL.md"):
+                try:
+                    resolved = p.resolve()
+                except OSError:
+                    resolved = p
+                if resolved in seen_paths:
+                    continue
+                seen_paths.add(resolved)
+                found.append(p)
 
     return found
 
