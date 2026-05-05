@@ -16,7 +16,7 @@ graph TB
   end
 
   subgraph Backend["Local Express server (:3001)"]
-    Index["server/index.js<br/>/api/chat /api/providers /api/abort"]
+    Index["server/index.js<br/>/api/chat · /api/providers · /api/abort<br/>/api/settings/* · /api/automation/* · /mcp"]
     Providers["server/providers.js<br/>(Claude provider)"]
     Composio["server/composio.js<br/>(tool fetch + execute)"]
     Skills["server/skills.js<br/>(bridges to skill_crawler.py)"]

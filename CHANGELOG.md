@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Watchdog verify window extended from ~12s to ~30s in both `cowork_watchdog.ps1` and `mcp_watchdog.ps1`. `npm run server` cold-start takes 20-25s on this box, so the previous window logged spurious `FAILED` lines while the backend was still coming up.
+- Documentation: CHANGELOG, ARCHITECTURE, and SECURITY now list the full Express endpoint set (chat, settings, automation, `/mcp`) instead of only the three primary chat-flow endpoints — the security boundary is wider than the original doc claimed.
 
 ### Security
 - Smilee/visualization is and remains fully offline — no network calls under any circumstance.
@@ -25,9 +26,12 @@ Initial public-style release. Capabilities present at this tag:
 ### Added
 - **Electron desktop shell** with chat UI (`renderer/`, no framework), `main.js` Electron main process, and `preload.js` exposing a minimal `contextBridge` between renderer and the local Express server.
 - **Express backend** (`server/index.js`, port 3001) with:
-  - `/api/chat` — streamed text responses (Transfer-Encoding: chunked).
-  - `/api/providers` — health/status.
-  - `/api/abort` — cancel in-flight requests.
+  - `/api/chat` (POST) — streamed text responses (Transfer-Encoding: chunked).
+  - `/api/providers` (GET) — health/status.
+  - `/api/abort` (POST) — cancel in-flight requests.
+  - `/api/settings/status` (GET), `/api/settings/keys` (POST) — read/write `ANTHROPIC_API_KEY` and `COMPOSIO_API_KEY` in `.env` from the UI.
+  - `/api/automation/status` (GET), `/api/automation/start|stop|configure` (POST) — control the social-media automation pipeline.
+  - `/mcp` (mounted) — the embedded Spotify MCP router.
 - **Claude provider** (`server/providers.js`) — Anthropic SDK integration with streaming, system-prompt skill injection, and an agentic Composio tool-call loop.
 - **Composio integration** (`server/composio.js`) — optional: when `COMPOSIO_API_KEY` is set, tools are loaded and Claude can call them in a loop.
 - **Skill crawler** (`skill_crawler.py`) — scans `SKILL.md` files plus `.zip` / `.skill` archives, scores them by keyword + synonym match, returns matches as JSON to `server/skills.js`.

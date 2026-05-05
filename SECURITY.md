@@ -37,7 +37,7 @@ and the reason for the slip.
 
 In scope:
 
-- The Express server (`server/`) and its endpoints (`/api/chat`, `/api/providers`, `/api/abort`).
+- The Express server (`server/`) and **all** of its endpoints — chat (`/api/chat`, `/api/abort`), provider health (`/api/providers`), settings (`/api/settings/status`, `/api/settings/keys` — note: the latter writes API keys back to `.env`), the automation pipeline (`/api/automation/status|start|stop|configure`), and the embedded Spotify MCP mount (`/mcp`).
 - The Electron main / preload bridge (`main.js`, `preload.js`).
 - The renderer UI (`renderer/`) — XSS, output handling, content-security boundaries.
 - `skill_crawler.py` — path handling, archive extraction, scoring code.
