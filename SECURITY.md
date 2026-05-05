@@ -16,10 +16,12 @@ Please do not open public GitHub issues for security vulnerabilities.
 
 ## Scope
 
-This policy covers:
-- The Open Claude Cowork Electron app (this repo)
-- The published agent skills under `custom-skills/`
-- The skill_crawler.py auto-matcher
+This repo (`tRollNhard/1st`) hosts both an application and published skills.
+The policy covers all of it:
+- The Open Claude Cowork Electron app (this repo's main artifact)
+- The agent skills published from `custom-skills/` via `gh skill publish`
+- The `skill_crawler.py` auto-matcher and `scripts/validate-skills.py` CI check
+- All released versions tagged `v*`
 
 ## Out of Scope
 

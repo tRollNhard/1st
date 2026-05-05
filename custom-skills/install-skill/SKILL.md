@@ -103,9 +103,10 @@ After install, confirm:
 ## Step 4 — Update the local crawler if needed
 
 If the project has a custom skill crawler (e.g. `skill_crawler.py`), check its
-search dirs. `gh skill install` writes to `.agents/skills/` and GSD writes to
-`~/.claude/skills/`. If the harness should auto-match those, add them to the
-crawler's `search_dirs`.
+search dirs. `gh skill install` writes to `.agents/skills/`, and GSD writes
+to the user-global Claude home — `~/.claude/skills/` on macOS/Linux,
+`%USERPROFILE%\.claude\skills\` on Windows. If the harness should auto-match
+those, add them to the crawler's `search_dirs`.
 
 ## Common name → GitHub-repo mappings
 
