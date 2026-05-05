@@ -162,3 +162,4 @@ spotify-mcp/.certs/
 # Local Claude settings
 .claude/settings.local.json
 .claude/settings.json
+.agents/
