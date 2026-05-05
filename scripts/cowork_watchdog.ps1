@@ -47,10 +47,13 @@ Start-Process -FilePath $npmCmd `
 
 Start-Sleep -Seconds 4
 
-# Verify it came back up
+# Verify it came back up.
+# `npm run server` cold-start can take 20-25s on this box, so the verify
+# window is ~30s of probes (15 * 2s) on top of the 4s head-start above.
+# Shorter windows logged spurious FAILED while the backend was still starting.
 $retry = 0
 $up = $false
-while ($retry -lt 6 -and -not $up) {
+while ($retry -lt 15 -and -not $up) {
     Start-Sleep -Seconds 2
     try {
         $r = Invoke-WebRequest -Uri $HealthUrl -TimeoutSec 3 -UseBasicParsing
@@ -59,5 +62,5 @@ while ($retry -lt 6 -and -not $up) {
     $retry++
 }
 
-if ($up) { Write-Log "RESTARTED - backend healthy after $($retry*2)s" }
+if ($up) { Write-Log "RESTARTED - backend healthy after $($retry*2 + 4)s" }
 else     { Write-Log "FAILED - backend still not responding after restart attempt" }

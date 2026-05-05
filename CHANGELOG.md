@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Motivate/` — daily motivational video generator (Electron app), with quote pipeline, one-click OAuth, all-platform publishing, and TikTok-first setup UI.
 - Smilee visualizer improvements: lightning rate-limiting, refreshed FX header, fireworks, spectrum wreath, nebula, punchier beat.
 
+### Fixed
+- Watchdog verify window extended from ~12s to ~30s in both `cowork_watchdog.ps1` and `mcp_watchdog.ps1`. `npm run server` cold-start takes 20-25s on this box, so the previous window logged spurious `FAILED` lines while the backend was still coming up.
+
 ### Security
 - Smilee/visualization is and remains fully offline — no network calls under any circumstance.
 

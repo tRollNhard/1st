@@ -47,8 +47,10 @@ function Restart-Backend {
                   -WorkingDirectory $ProjectDir `
                   -WindowStyle Hidden
 
+    # `npm run server` cold-start can take 20-25s on this box; verify window
+    # is 15 * 2s = 30s so a slow start doesn't get logged as FAILED.
     $up = $false
-    for ($i = 0; $i -lt 6 -and -not $up; $i++) {
+    for ($i = 0; $i -lt 15 -and -not $up; $i++) {
         Start-Sleep -Seconds 2
         $up = Test-Backend
     }
