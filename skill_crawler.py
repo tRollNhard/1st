@@ -17,9 +17,12 @@ import zipfile
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 APPDATA         = pathlib.Path(os.environ.get("APPDATA", ""))
+HOME            = pathlib.Path(os.environ.get("USERPROFILE", os.path.expanduser("~")))
 SESSIONS_ROOT   = APPDATA / "Claude" / "local-agent-mode-sessions"
 CUSTOM_SKILLS   = pathlib.Path(__file__).parent / "custom-skills"
 CLAUDE_SKILLS   = pathlib.Path(__file__).parent / ".claude" / "skills"
+USER_CLAUDE_SKILLS = HOME / ".claude" / "skills"          # gh skill install + GSD target
+GH_AGENTS_SKILLS   = pathlib.Path(__file__).parent / ".agents" / "skills"  # gh skill install (per-project)
 SD_CARD_SKILLS  = pathlib.Path("D:/skills")
 
 # How many conditional skill matches to show per prompt
@@ -31,7 +34,8 @@ def find_all_skill_mds() -> list[pathlib.Path]:
     """Return every SKILL.md path across all known locations."""
     found = []
 
-    search_dirs = [SESSIONS_ROOT, CUSTOM_SKILLS, CLAUDE_SKILLS, SD_CARD_SKILLS]
+    search_dirs = [SESSIONS_ROOT, CUSTOM_SKILLS, CLAUDE_SKILLS,
+                   USER_CLAUDE_SKILLS, GH_AGENTS_SKILLS, SD_CARD_SKILLS]
 
     for d in search_dirs:
         if d.exists():
