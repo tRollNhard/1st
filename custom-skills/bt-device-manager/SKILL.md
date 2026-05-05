@@ -120,7 +120,7 @@ Agent Startup:
 {
   "service": "bt-device-manager",
   "version": "1.0",
-  "hostname": "JasonsPC",
+  "hostname": "MyPC",
   "ip": "192.168.1.50",
   "port": 8377,
   "os": "windows",
@@ -175,7 +175,7 @@ Users define priority lists per Bluetooth device:
 {
   "JBL Flip 6": {
     "mac": "AA:BB:CC:DD:EE:FF",
-    "priority": ["JasonsPC", "JasonsPhone", "LivingRoomTV"],
+    "priority": ["MyPC", "MyPhone", "LivingRoomTV"],
     "auto_fallback": true,
     "fallback_delay_seconds": 5
   }
