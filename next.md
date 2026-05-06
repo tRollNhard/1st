@@ -1,32 +1,10 @@
 # Next session — pick up here
 
-**Updated**: 2026-05-05 — accessibility review done on this file, 3 fixes queued.
-
-## ⚡ Resume here — accessibility fixes for next.md
-
-Ran `/design:accessibility-review next.md`. WCAG 2.1 AA scoped to what applies to a markdown handoff note. Three fixes queued, ~2 min of editing:
-
-1. **Bare URLs → descriptive markdown links** (2.4.4 Link Purpose, 🟡 Major)
-   - Line 7: `https://github.com/tRollNhard/1st/pull/1` → `[PR #1 on GitHub](https://github.com/tRollNhard/1st/pull/1)`
-   - Line 50: `https://github.com/tRollNhard/1st/settings/rules` → `[Repo rulesets settings](https://github.com/tRollNhard/1st/settings/rules)`
-   - Line 54: `https://github.com/tRollNhard/1st/settings/security_analysis` → `[Code security settings](https://github.com/tRollNhard/1st/settings/security_analysis)`
-
-2. **Reword `⏳ Web UI` status cell** (3.3.2 Labels, 🟢 Minor)
-   - Line 27 review-items table, item #6 status column: change `⏳ **Web UI** — Jason to do` to `⏳ Pending (manual web-UI step) — Jason to do` so the status reads cleanly out of context.
-
-3. **(Optional, AAA — skip for internal doc)** Expand abbreviations on first use (PR, CI, MCP, SLA, SDK, BRAIN). Only worth doing if this doc ever ships externally.
-
-**Skip the rest** — heading hierarchy, table structure, list semantics, and emoji-with-text status indicators all pass. Color contrast and keyboard nav are N/A (markdown source, renderer-owned).
-
-After applying #1 and #2, commit as `docs(next): a11y — descriptive link text and clearer status label`.
-
----
-
-## Prior state (still accurate below)
+**Updated**: 2026-05-06 — accessibility fixes applied (descriptive links, status label, abbreviation expansion on first use).
 
 ## Current state — branch `claude/focused-faraday-6d1967` (HEAD: e85f9e5)
 
-PR #1 open: [PR #1 on GitHub](https://github.com/tRollNhard/1st/pull/1) — 6 commits, **approved** with all fixable review items resolved.
+Pull Request (PR) #1 open: [PR #1 on GitHub](https://github.com/tRollNhard/1st/pull/1) — 6 commits, **approved** with all fixable review items resolved.
 
 ### Commits in PR (in order)
 
@@ -89,8 +67,8 @@ PR #1 open: [PR #1 on GitHub](https://github.com/tRollNhard/1st/pull/1) — 6 co
 ## Auth state
 
 - `gh auth status` → logged in as `tRollNhard`, scopes `gist, read:org, repo`, token in keyring
-- pyyaml installed via pip (needed for scripts/validate-skills.py locally; CI installs it from scratch)
-- No Adobe / Canva / Figma vendor MCPs wired into Cowork's `.mcp.json`
+- pyyaml installed via pip (needed for scripts/validate-skills.py locally; Continuous Integration (CI) installs it from scratch)
+- No Adobe / Canva / Figma vendor Model Context Protocol (MCP) servers wired into Cowork's `.mcp.json`
 
 ## Memory rules respected
 
