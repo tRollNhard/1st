@@ -11,10 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/cowork_watchdog.ps1`, `scripts/mcp_watchdog.ps1`, `scripts/run_hidden.vbs` — local watchdogs that keep the backend on `:3001` alive (used by Spotify MCP), probe every MCP in `.mcp.json`, and prune stale auth-cache entries. Wired to scheduled tasks `CoworkBackendWatchdog` (5 min) and `MCPWatchdog` (2 min).
 - `Motivate/` — daily motivational video generator (Electron app), with quote pipeline, one-click OAuth, all-platform publishing, and TikTok-first setup UI.
 - Smilee visualizer improvements: lightning rate-limiting, refreshed FX header, fireworks, spectrum wreath, nebula, punchier beat.
+- `custom-skills/web-video-presentation/` (skill #8) — turns slides + script into a self-contained narrated video for the web. Pipeline: storyboard → audio capture → render → mix → caption → MP4/WebM export. Reference at `references/AUDIO.md` (capture/cleanup/loudness/encode recipes, WCAG-aligned accessibility checks).
+- `visualization/CHANGELOG.md`, `visualization/ARCHITECTURE.md`, `visualization/SECURITY.md` — Smillee now has the Standard Project Doc Set. `ARCHITECTURE.md` documents the four-layer offline-invariant enforcement (Chromium CL flags, renderer CSP, `webRequest.onBeforeRequest`, dead proxy). `SECURITY.md` defines an offline-invariant breach as a scope-1 vulnerability.
+
+### Changed
+- Dev-time auto-reloader for the root Electron app swapped from `electron-reload` (`2.0.0-alpha.1`, abandoned 5 years) to `electron-reloader@^1.2.3`. Same `try/catch` + `NODE_ENV === 'development'` gating; ignore filter narrowed from `/server|node_modules/` to `[/server/]` since `electron-reloader` ignores `node_modules` and dot-files by default. The dependency was also moved from `dependencies` to `devDependencies` to match its actual lifecycle. `npm audit` clean.
 
 ### Fixed
 - Watchdog verify window extended from ~12s to ~30s in both `cowork_watchdog.ps1` and `mcp_watchdog.ps1`. `npm run server` cold-start takes 20-25s on this box, so the previous window logged spurious `FAILED` lines while the backend was still coming up.
 - Documentation: CHANGELOG, ARCHITECTURE, and SECURITY now list the full Express endpoint set (chat, settings, automation, `/mcp`) instead of only the three primary chat-flow endpoints — the security boundary is wider than the original doc claimed.
+
+### Removed
+- `next1.md` — the single QUEUED watchdog-verification step it described was empirically completed by the watchdog itself at 2026-05-08 18:00 (`DOWN - backend not responding, restarting...` → `RESTARTED - backend healthy after 14s` → sustained `OK` lines). Handoff is no longer load-bearing.
 
 ### Security
 - Smilee/visualization is and remains fully offline — no network calls under any circumstance.
