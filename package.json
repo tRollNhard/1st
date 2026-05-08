@@ -12,13 +12,11 @@
     "visualizer": "electron visualization/main.js",
     "setup": "bash setup.sh"
   },
-  "dependencies": {
-    "electron-reload": "^2.0.0-alpha.1"
-  },
   "devDependencies": {
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "^42.0.0"
+    "electron": "^42.0.0",
+    "electron-reloader": "^1.2.3"
   },
   "engines": {
     "node": ">=18.0.0"
