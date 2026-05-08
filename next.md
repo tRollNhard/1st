@@ -1,87 +1,87 @@
 # Next session — pick up here
 
-**Updated**: 2026-05-06 — accessibility fixes applied (descriptive links, status label, abbreviation expansion on first use).
+**Updated**: 2026-05-08 — branch renamed `focused-faraday` → `focused-clemson`, PR rebased onto current `main`, tag protection + security hardening applied.
 
-## Current state — branch `claude/focused-faraday-6d1967` (HEAD: e85f9e5)
+## Current state — branch `claude/focused-clemson-6d1967`
 
-Pull Request (PR) #1 open: [PR #1 on GitHub](https://github.com/tRollNhard/1st/pull/1) — 6 commits, **approved** with all fixable review items resolved.
+Pull Request (PR) #2 open: [PR #2 on GitHub](https://github.com/tRollNhard/1st/pull/2) — 5 commits, rebased clean onto `origin/main`, **MERGEABLE**.
 
-### Commits in PR (in order)
+> [PR #1](https://github.com/tRollNhard/1st/pull/1) was closed by GitHub when the head branch was renamed (head ref dangling, can't reopen). PR #2 is the rebased equivalent.
 
-1. `289c80a` — Add license to skills, consolidate bt-device-manager, gitignore .agents
-2. `975194d` — Add SECURITY.md (jwclarkladymae@ + 3/7/30 SLA)
-3. `ba137c0` — Add install-skill (universal plugin installer)
-4. `d178941` — skill_crawler: scan ~/.claude/skills and .agents/skills
-5. `cf72360` — install-skill: genericize "Jason"/"tRollNhard" for public publish
-6. `e85f9e5` — Review follow-ups: CI validation, dedup, scope, Windows path
+### Commits in PR #2 (in order, post-rebase)
+
+1. `3f6745a` — Add license to skills, consolidate bt-device-manager, gitignore .agents
+2. `b8a492e` — Add install-skill: universal skill/plugin installer
+3. `dcb7e07` — skill_crawler: scan ~/.claude/skills and .agents/skills
+4. `4071690` — install-skill: genericize Jason/tRollNhard for public publish
+5. `8724b81` — Review follow-ups: CI validation, dedup, scope, Windows path
+
+(Commit `975194d` "Add SECURITY.md" from PR #1 was **dropped** during rebase — main's SECURITY.md is the comprehensive Standard-Project-Doc-Set version with full endpoint list, which strictly supersedes the PR's older 47-line version.)
 
 ### Review items — final status
 
 | # | Severity | Issue | Status |
 |---|---|---|---|
-| 1 | High | Privacy leak | ✅ Fixed (cf72360) |
-| 2 | Medium | skill_crawler dedup | ✅ Fixed (e85f9e5 — resolved-path dedup + precedence ordering) |
-| 3 | Medium | scan-time caching | ⏭️ Skipped (premature without measured cost) |
-| 4 | Low | SECURITY scope drift | ✅ Fixed (e85f9e5) |
-| 5 | Low | No CI dry-run | ✅ Fixed (e85f9e5 — scripts/validate-skills.py + .github/workflows/skill-validate.yml) |
-| 6 | Watch | Tag protection ruleset | ⏳ Pending (manual web-UI step) — Jason to do |
-| 7 | Low | Windows path clarity | ✅ Fixed (e85f9e5) |
+| 1 | High | Privacy leak | Fixed (`4071690`) |
+| 2 | Medium | skill_crawler dedup + precedence | Fixed (`8724b81`) |
+| 3 | Medium | scan-time caching | Skipped (premature without measured cost) |
+| 4 | Low | SECURITY scope drift | Superseded by main's expanded SECURITY.md |
+| 5 | Low | No CI dry-run | Fixed (`scripts/validate-skills.py` + workflow) |
+| 6 | Watch | Tag protection ruleset | **Done** (ruleset id 16153427, pattern `refs/tags/v*`, restrict deletions/updates/non-fast-forward) |
+| 7 | Low | Windows path clarity (`%USERPROFILE%`) | Fixed (`8724b81`) |
 
-### Skills installed via gh skill (in `.agents/skills/`, gitignored)
+### Repo hardening applied this session
 
-- `mxyhi/ok-skills electron` (318★) — Electron app automation via CDP
-- `Starchild-ai-agent/official-skills composio` (11★) — Composio Gateway patterns
-- `RaheesAhmed/SajiCode superpowers v1.0.4` (66★) — analyze→plan→implement→verify workflow
+- Tag ruleset: `Protect release tags` covers `refs/tags/v*` — deletions, updates, and non-fast-forwards all restricted (immutable releases)
+- Secret scanning: enabled
+- Secret scanning push protection: enabled
+- Dependabot vulnerability alerts: enabled
+- Dependabot security updates (auto-PRs): enabled
 
-### Skills installed globally via npx
+## Conflict resolution decisions made during rebase
 
-- `get-shit-done-cc@1.40.0` (TÂCHES) — 65 skills + 9 hooks at `~/.claude/skills/`. Restart Claude Code CLI then `/gsd-new-project`.
-
-### skill_crawler.py now sees 407 skills (dedup'd, was ~112 originally)
-
-## Verification done
-
-- `python scripts/validate-skills.py custom-skills` → **OK: validated 7 skill(s)**
-- `gh skill publish custom-skills --dry-run` → **Dry run complete**
-- `python skill_crawler.py --list` → 407 skills loaded clean
+- `.gitignore` — unioned both sides: kept main's `next*.md` exclusion block AND added the PR's `.agents/` line
+- `SECURITY.md` — kept main's version on every conflict, dropped the PR's redundant `Add SECURITY.md` commit (`975194d`)
 
 ## Remaining steps to ship v0.1.0
 
-1. **Web UI — tag protection**: [Repo rulesets settings](https://github.com/tRollNhard/1st/settings/rules)
-   - New tag ruleset, pattern `v*`
-   - Restrict deletions, restrict updates → immutable releases
-
-2. **Web UI — security toggles**: [Code security settings](https://github.com/tRollNhard/1st/settings/security_analysis)
-   - Secret scanning ✓
-   - Push protection ✓
-   - Dependabot alerts ✓
-
-3. **Merge PR #1**: `gh pr merge 1 --squash --delete-branch` (or web UI)
-
-4. **Switch to main + pull**:
-   - From a non-worktree clone, or open a fresh worktree on `main`
-   - `git checkout main && git pull`
-
-5. **Publish**: `gh skill publish custom-skills --tag v0.1.0`
+1. **Wait for CI** on [PR #2](https://github.com/tRollNhard/1st/pull/2) — `Validate Skills` workflow
+2. **Merge PR #2**: `gh pr merge 2 --squash --delete-branch` (or web UI)
+3. **Pull main locally**: from a worktree on `main`, `git pull`
+4. **Publish**: `gh skill publish custom-skills --tag v0.1.0`
+   (Tag ruleset will make this tag immutable post-publish)
 
 ## Auth state
 
 - `gh auth status` → logged in as `tRollNhard`, scopes `gist, read:org, repo`, token in keyring
-- pyyaml installed via pip (needed for scripts/validate-skills.py locally; Continuous Integration (CI) installs it from scratch)
+- pyyaml installed via pip locally (Continuous Integration installs it from scratch)
 - No Adobe / Canva / Figma vendor Model Context Protocol (MCP) servers wired into Cowork's `.mcp.json`
+
+## Skills inventory (unchanged from prior session)
+
+- Skills via `gh skill` in `.agents/skills/` (gitignored): `mxyhi/ok-skills electron`, `Starchild-ai-agent/official-skills composio`, `RaheesAhmed/SajiCode superpowers v1.0.4`
+- Skills globally via `npx`: `get-shit-done-cc@1.40.0` (65 skills + 9 hooks at `~/.claude/skills/`)
+- `skill_crawler.py` sees 407 skills (dedup'd, was ~112 originally)
 
 ## Memory rules respected
 
 - next.md queued for auto-load (per `feedback_read_next.md`)
-- `Standard Project Doc Set` — SECURITY.md ✓, CHANGELOG.md and ARCHITECTURE.md still missing (follow-up)
-- `Verified Improvements Only` — all changes confirmed by dry-run + validator before push
+- `Standard Project Doc Set` — CHANGELOG.md, SECURITY.md, ARCHITECTURE.md all present on main
+- `Verified Improvements Only` — all rebase decisions confirmed via diff inspection before commit
+- `No cloud-billed commands by default` — used local `gh` and inline tools, no `/ultrareview`/`/ultraplan`
+
+## Loose end (cosmetic, non-blocking)
+
+A local worktree exists at `.claude/worktrees/focused-faraday-6d1967` checked out on the now-renamed branch. To clean up when convenient:
+
+```bash
+cd .claude/worktrees/focused-faraday-6d1967
+git fetch --prune
+git branch -m claude/focused-faraday-6d1967 claude/focused-clemson-6d1967
+git branch --set-upstream-to=origin/claude/focused-clemson-6d1967
+# optionally: git worktree move <self> ../focused-clemson-6d1967
+```
 
 ## Quick re-orient prompt
 
-> "Read next.md and continue. PR #1 is fully approved (6 commits, all fixable items resolved). Ready to merge once tag protection + security toggles are enabled in the web UI. Then publish v0.1.0."
-
-## Open follow-ups (post v0.1.0)
-
-- CHANGELOG.md and ARCHITECTURE.md per memory rule `Standard Project Doc Set`
-- Cache layer for skill_crawler if startup latency becomes noticeable
-- Add `bt-device-manager` `always_active: false` for explicitness (cosmetic)
+> "Read next.md and continue. PR #2 (`claude/focused-clemson-6d1967`) is rebased and mergeable. Tag protection and security toggles already enabled. Wait for CI green, then `gh pr merge 2 --squash --delete-branch` and publish v0.1.0."
