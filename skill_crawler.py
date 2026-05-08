@@ -15,6 +15,15 @@ import json
 import pathlib
 import zipfile
 
+# Force UTF-8 stdout on Windows consoles whose default cp1252/charmap can't
+# encode the em-dashes and box-drawing characters used in --list output.
+# Per PEP 528 + Python 3.7+ TextIOWrapper.reconfigure.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 APPDATA         = pathlib.Path(os.environ.get("APPDATA", ""))
 HOME            = pathlib.Path(os.environ.get("USERPROFILE", os.path.expanduser("~")))
