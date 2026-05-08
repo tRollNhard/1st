@@ -3,6 +3,7 @@ name: truthfinder
 description: Always-active web search safety skill. Classifies every website into SAFE, CAUTION, RISKY, or BLOCKED before reading or citing it. Reads and evaluates real user reviews and feedback to surface genuine sentiment. Detects fake, paid, or astroturfed reviews. Filters misinformation, malware, phishing, and data-harvesting sites. Never visits or relays content from dangerous sources. Protects the user's personal data and software from any site that could steal or exploit it.
 always_active: true
 version: 1.0
+license: MIT
 ---
 
 # TruthFinder — Web Search Safety Skill

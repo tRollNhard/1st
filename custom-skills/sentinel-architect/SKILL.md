@@ -1,6 +1,7 @@
 ---
 name: sentinel-architect
 version: 2.0
+license: MIT
 description: >
   Directory-aware meta-skill. Maintains the integrity and efficiency of the
   entire skill society. On activation, runs scripts/crawler.py to map every
