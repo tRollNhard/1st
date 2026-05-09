@@ -7,9 +7,14 @@
 #   2. spotify MCP not speaking JSON-RPC -> restart cowork backend (host of /mcp)
 #   3. stale entries in mcp-needs-auth-cache.json (>30 days) -> prune
 #   4. Claude Desktop dialog killers — fix the recurring "MCP server failed" popups:
-#      - Windows-MCP: ensure uv is on machine PATH (auto-install via winget)
-#      - Filesystem / pdf-viewer: scan mcp.log for recent UtilityProcess spawn
-#        timeouts and surface them in this log so we know which extension flaked
+#      - Windows-MCP: ensure uv installed AND patch manifest.json to absolute path
+#        (Claude Desktop spawns with explorer.exe's PATH frozen at logon, which
+#         can lack the WinGet Links dir even after a fresh winget install. Hardcoding
+#         the absolute path eliminates the PATH dependency entirely.)
+#      - Filesystem: trim allowed_directories to drives that exist on this box.
+#        Configuring nonexistent drives (G:..J:) or empty optical (F:) at startup
+#        trips Electron's 5s UtilityProcess spawn cap.
+#      - pdf-viewer: log only — disabled in Claude Desktop UI by user choice.
 #
 # Never spends money. Only HTTP probes to localhost and local file edits.
 
@@ -19,6 +24,11 @@ $LogFile      = Join-Path $ProjectDir 'scripts\mcp_watchdog.log'
 $McpConfig    = Join-Path $ProjectDir '.mcp.json'
 $AuthCache    = Join-Path $env:USERPROFILE '.claude\mcp-needs-auth-cache.json'
 $ClaudeMcpLog = Join-Path $env:APPDATA 'Claude\logs\mcp.log'
+$ClaudeExtDir = Join-Path $env:APPDATA 'Claude\Claude Extensions'
+$ClaudeExtSettingsDir = Join-Path $env:APPDATA 'Claude\Claude Extensions Settings'
+$WindowsMcpManifest   = Join-Path $ClaudeExtDir 'ant.dir.cursortouch.windows-mcp\manifest.json'
+$FilesystemSettings   = Join-Path $ClaudeExtSettingsDir 'ant.dir.ant.anthropic.filesystem.json'
+$UvAbsolutePath       = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\uv.exe'
 $BackendUrl   = 'http://localhost:3001/api/providers'
 $StaleDays    = 30
 # Claude Desktop extensions whose dialogs we want to silence
@@ -27,6 +37,14 @@ $WatchedExtensions = @('Windows-MCP','Filesystem','pdf-viewer')
 function Write-Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg
     Add-Content -Path $LogFile -Value $line
+}
+
+function Write-JsonNoBom($path, $text) {
+    # Windows PowerShell 5.1's `Set-Content -Encoding UTF8` writes a BOM, which
+    # some strict JSON parsers (e.g. Node's stricter modes) reject. Write bytes
+    # directly with a BOM-less UTF-8 encoder.
+    $enc = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($path, $text, $enc)
 }
 
 function Test-Backend {
@@ -140,6 +158,80 @@ function Ensure-Uv {
     return $false
 }
 
+function Ensure-WindowsMcpAbsoluteUv {
+    # Even with uv on PATH, Claude Desktop's Node spawn often fails because
+    # explorer.exe captured its PATH at logon — before the WinGet entry was
+    # added — and Claude Desktop inherits that frozen copy. Force the manifest
+    # to use the absolute path so the spawn is PATH-independent.
+    if (-not (Test-Path $WindowsMcpManifest)) {
+        Write-Log "SKIP  - Windows-MCP manifest not found"
+        return
+    }
+    if (-not (Test-Path $UvAbsolutePath)) {
+        Write-Log "SKIP  - uv.exe not at expected absolute path ($UvAbsolutePath)"
+        return
+    }
+    try {
+        $raw = Get-Content $WindowsMcpManifest -Raw -ErrorAction Stop
+        $manifest = $raw | ConvertFrom-Json
+    } catch {
+        Write-Log "WARN  - could not parse Windows-MCP manifest: $($_.Exception.Message)"
+        return
+    }
+    $current = $manifest.server.mcp_config.command
+    if ($current -eq $UvAbsolutePath) {
+        Write-Log "OK    - Windows-MCP manifest pinned to absolute uv"
+        return
+    }
+    $manifest.server.mcp_config.command = $UvAbsolutePath
+    try {
+        Write-JsonNoBom $WindowsMcpManifest ($manifest | ConvertTo-Json -Depth 32)
+        Write-Log "FIX   - Windows-MCP manifest command set to $UvAbsolutePath (was '$current')"
+    } catch {
+        Write-Log "WARN  - failed to write Windows-MCP manifest: $($_.Exception.Message)"
+    }
+}
+
+function Ensure-FilesystemDrivesTrimmed {
+    # Filesystem extension's UtilityProcess spawn has a hard 5s cap. Listing
+    # nonexistent or empty-optical drives at startup blows past it. Keep the
+    # config to drives that actually have data (probed via Get-PSDrive).
+    if (-not (Test-Path $FilesystemSettings)) { return }
+    try {
+        $raw = Get-Content $FilesystemSettings -Raw -ErrorAction Stop
+        $settings = $raw | ConvertFrom-Json
+    } catch {
+        Write-Log "WARN  - could not parse Filesystem settings: $($_.Exception.Message)"
+        return
+    }
+    if (-not $settings.userConfig -or -not $settings.userConfig.allowed_directories) {
+        return
+    }
+    $current = @($settings.userConfig.allowed_directories)
+    # Build the desired list from drives that exist AND have nonzero capacity.
+    # An optical drive with no disc reports 0 used + 0 free — drop it.
+    $desired = @()
+    foreach ($d in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
+        $cap = ($d.Used + $d.Free)
+        if ($cap -gt 0) { $desired += ("{0}:\" -f $d.Name) }
+    }
+    if (-not $desired -or $desired.Count -eq 0) { return }
+    # Compare sorted arrays; only rewrite if changed.
+    $a = ($current | Sort-Object) -join '|'
+    $b = ($desired | Sort-Object) -join '|'
+    if ($a -eq $b) {
+        Write-Log "OK    - Filesystem allowed_directories matches mounted drives ($($desired -join ', '))"
+        return
+    }
+    $settings.userConfig.allowed_directories = $desired
+    try {
+        Write-JsonNoBom $FilesystemSettings ($settings | ConvertTo-Json -Depth 16)
+        Write-Log "FIX   - Filesystem allowed_directories trimmed to mounted drives: $($desired -join ', ') (was: $($current -join ', '))"
+    } catch {
+        Write-Log "WARN  - failed to write Filesystem settings: $($_.Exception.Message)"
+    }
+}
+
 function Report-RecentExtensionErrors {
     # Surface "UtilityProcess spawn timeout" and other transport errors from
     # Claude Desktop's mcp.log within the last hour. We can't fix them from
@@ -228,4 +320,6 @@ Prune-AuthCache
 
 # 4. Claude Desktop dialog killers.
 Ensure-Uv | Out-Null
+Ensure-WindowsMcpAbsoluteUv
+Ensure-FilesystemDrivesTrimmed
 Report-RecentExtensionErrors
