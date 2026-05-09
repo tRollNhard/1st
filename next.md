@@ -1,46 +1,69 @@
 # Next session — pick up here
 
-**Updated**: 2026-05-08 — v0.1.1 shipped, Dependabot 90 → 0, skill_crawler Windows-console fix.
-
-## Current state — `main` is clean and current
-
-Latest commit: `82d7812` (skill_crawler UTF-8 stdout fix). Repo is ahead in every dimension that mattered yesterday.
+**Updated**: 2026-05-08 — post-v0.1.1 follow-ups all closed. Branch `claude/zealous-brahmagupta-b08415` ready for PR. One open question on worktree prune.
 
 ## What landed since the last next.md
 
 | Stream | Result |
 |---|---|
-| **Release** | [v0.1.0](https://github.com/tRollNhard/1st/releases/tag/v0.1.0) (immutable per ruleset) → [v0.1.1](https://github.com/tRollNhard/1st/releases/tag/v0.1.1) with privacy fix for `bt-device-manager` examples (`JasonsPC`/`JasonsPhone` → `MyPC`/`MyPhone`) |
-| **Branch hygiene** | `focused-faraday` rename closed PR #1 → opened/merged PR #2 from `focused-clemson`. Stale `focused-faraday` worktree removed; cosmetic `claude/zealous-kare-c88950` branch pruned from origin |
-| **Repo hardening** | Tag ruleset id 16153427 (`refs/tags/v*`, restrict deletes/updates/non-FF). Secret scanning, push protection, Dependabot alerts + automated security updates — all enabled. Tag immutability **verified** (delete attempt returned HTTP 422) |
-| **Dependencies** | **90 alerts → 0**. Bumps: electron 33→42 (root), 28→42 (Motivate), 33→42 (Smilee); vite 5→8, electron-builder 25→26 (Smilee); `tmp@^0.2.4` override in server (composio-core's deep transitive). spotify-mcp's `express-rate-limit` 8.3.2→8.5.1 |
-| **Skill_crawler bug** | `--list` mode crashed on Windows cp1252 console (em-dash). Fixed via `sys.stdout.reconfigure(encoding="utf-8")` per PEP 528. `--json` (server path) was always clean |
-| **Preserved** | An untracked `web-video-presentation` skill from the deleted faraday worktree → `Desktop/_preserved-from-worktree-cleanup-2026-05-08/` with README explaining decision |
+| **electron-reload swap** | Replaced abandoned `electron-reload` (`2.0.0-alpha.1`, 5y dead) with maintained `electron-reloader@^1.2.3`. Dep moved from `dependencies` → `devDependencies`. Same `try/catch` + `NODE_ENV === 'development'` gating; ignore filter narrowed to `[/server/]` (chokidar defaults handle `node_modules` and dot-files). `npm audit` still 0. |
+| **web-video-presentation skill** | Promoted preserved scaffold (`Desktop/_preserved-from-worktree-cleanup-2026-05-08/skills/web-video-presentation/`) into `custom-skills/` as skill #8 with `license: MIT` line added per convention. Validates clean; appears at slot [377] in the crawler list and matches its own trigger phrase. |
+| **Smillee Standard Doc Set** | Added `visualization/{CHANGELOG,ARCHITECTURE,SECURITY}.md`. ARCHITECTURE.md documents the 4-layer offline-invariant enforcement (CL flags, CSP, `webRequest.onBeforeRequest`, dead proxy). SECURITY.md treats any outbound traffic from a packaged build as a scope-1 vulnerability. CHANGELOG covers `[Unreleased]` (Electron 42 / Vite 8 bumps) and `[1.0.0]` (offline-hardening baseline). |
+| **next1.md retired** | Removed. Its single QUEUED watchdog-verification step was empirically completed by the watchdog itself: `[2026-05-08 18:00:09] DOWN ... [18:00:40] RESTARTED ... [18:05:07] OK ...` in `scripts/cowork_watchdog.log`. The watchdog self-verified — the handoff is no longer load-bearing. |
 
-## Verification trail (per `Verified Improvements Only` + `Search examples proactively`)
+## Verification trail (per `Verified Improvements Only`)
 
-- Web-searched Electron 33→42 breaking changes ([electronjs.org/breaking-changes](https://www.electronjs.org/docs/latest/breaking-changes), [Electron 42 release notes](https://www.electronjs.org/blog/electron-42-0))
-- Grepped repo for usage of every deprecated/removed API (`clipboard`, `getBitmap`, `--host-rules`, `clearStorageData(quotas)`, `enableDeprecatedPaste`, `execCommand`, PDF WebContents) — **none used**
-- electron-reload (5y unmaintained) wrapped in try/catch and gated on `NODE_ENV=development` — degraded dev hot-reload would warn-and-continue, app still boots
-- Verified `tmp.tmpNameSync` exists in 0.2.5 (line 106, exported) and external-editor's single call site `tmpNameSync(this.fileOptions)` is API-compatible
-- `node --check` clean on `main.js`, `preload.js`, `Motivate/main.js`, `visualization/main.js`
-- `python scripts/validate-skills.py custom-skills` → 7 skills OK
-- Server module require-chain (composio.js + automation.js) loads clean
-- skill_crawler `--list` and `--json` both run clean post-fix
+- Web-searched current state of `electron-reload` vs `electronmon` vs `electron-reloader` for Electron 42 — `electron-reloader` won (cleanest API, simple `try { require(...)(module); } catch {}` swap; sindresorhus, supports Electron 5+).
+- `node --check` clean across `main.js`, `preload.js`, `Motivate/main.js`, `visualization/main.js`, `server/index.js`.
+- `node -e "require('./server/composio.js'); require('./server/automation.js')"` → OK after `cd server && npm install` (server/ has its own package.json).
+- `python scripts/validate-skills.py custom-skills` → OK: validated 8 skill(s).
+- `python skill_crawler.py --list` → completes clean (post `82d7812` UTF-8 fix); new skill at slot [377].
+- `npm audit` (root) → 0 vulnerabilities.
+
+## Branch state
+
+```
+e901545 docs(changelog): record post-v0.1.1 follow-ups
+d3389a1 docs(visualization): add CHANGELOG, ARCHITECTURE, SECURITY (Smillee Standard Doc Set)
+6ac154c chore(deps): replace electron-reload with maintained electron-reloader
+7d30847 feat(skill): add web-video-presentation custom skill   ← also retires next1.md
+                                                                  (bundled when git rm
+                                                                  was already staged)
+```
+
+4 atomic commits on `claude/zealous-brahmagupta-b08415`, ahead of `origin/main` by 4. Push + PR pending.
 
 ## What I did NOT do
 
-- Boot the desktop apps end-to-end (no GUI from this CLI). If you launch and anything looks off after the bumps, the most likely culprits are `electron-reload` (warns but won't crash) and Smilee's `vite 5→8` build (rare bundler-config edge cases)
-- Any cloud-billed commands (per memory rule)
-- Smile/visualization runtime test — only build-pipeline static checks
+- **Tag a release.** v0.1.2 / next-minor is a Jason call. The work is shipped as a PR for review, not as a tag.
+- **Boot the desktop apps end-to-end.** Static checks only. If you launch the root Electron app in dev mode (`npm run dev`), you should see no behavior change — the live-reload library is just swapped underneath. If `electron-reloader` warns, it falls through the existing `try/catch` to `console.warn('Live reload unavailable: ...')` and the app still boots.
+- **Smile/Motivate runtime test.** Same reason — no GUI from this CLI. Smillee's offline guarantee is documented and architectural; Motivate is unchanged here.
+- **`npm install` in `visualization/` and `Motivate/`.** Their changes (visualization: docs only; Motivate: untouched) don't need fresh `node_modules` to verify. Only `server/` needed installing in this worktree.
+- **Worktree prune.** Held for explicit go-ahead — see Open Questions.
 
-## Open follow-ups (non-blocking)
+## Open questions
 
-- Consider replacing `electron-reload` with a maintained alternative (nodemon for main process + Vite/HMR for renderer, or `@electron-forge/plugin-vite`) — current setup will fall through gracefully if it fully breaks, but it's a stable improvement opportunity
-- Decide on `web-video-presentation` skill at `Desktop/_preserved-from-worktree-cleanup-2026-05-08/` — promote into `custom-skills/` or delete
-- `composio-core@0.5.39` is latest published; transitive `inquirer` chain has no upstream fix yet. `tmp` override holds the line until Composio refreshes its pin
-- 22 worktrees still exist under `.claude/worktrees/` — most are at `312c8dc` or older; periodic prune via `git worktree remove` would reduce noise
+### 1. Worktree prune — 22 stale worktrees under `.claude/worktrees/`
+
+Most are at `312c8dc` or older. The risk is uncommitted user work. Plan if you say go:
+
+1. `git worktree prune --dry-run --expire 1.day.ago` — preview administrative-file pruning.
+2. For each path under `.claude/worktrees/`, run `git -C <path> status --short` to detect uncommitted changes.
+3. Surface the audit (clean vs dirty) before any removal.
+4. For clean ones, `git worktree remove <path>` one at a time. For dirty ones, decide per-worktree (preserve untracked files like the 2026-05-08 web-video-presentation rescue).
+
+This is destructive; it does not happen until you say go.
+
+### 2. Parent-master divergence
+
+Local parent at `C:\Users\Jason W Clark\Desktop\claude projects` is on `master`, 1 ahead of `origin/main` (`5d3a0c3 scripts(watchdog): kill the recurring Claude Desktop MCP dialogs`) and 8 behind (every v0.1.0/v0.1.1 commit + the bcad8fe next.md refresh). Parent's working tree also has uncommitted changes (`next.md`, `scripts/mcp_watchdog.ps1`, untracked `skills/`, untracked `visualization/CHANGELOG.md`).
+
+This is your local in-progress work — I deliberately did not touch the parent checkout. When you next pull / sync, you'll want to either:
+- **Cherry-pick `5d3a0c3` onto `main`** (if the watchdog change is real and untrack-only), then `git reset --hard origin/main` on the parent, or
+- **Merge** `master` into `origin/main` if you actually want both lines on one history.
+
+Either way, the visualization/CHANGELOG.md untracked in parent is now superseded by the one I just committed — diff first to be safe.
 
 ## Quick re-orient prompt
 
-> "v0.1.1 is shipped, Dependabot is at 0, repo is hardened. Read next.md for trail. If launching desktop apps, watch for electron-reload warnings (cosmetic) and Smilee Vite build (rare edge cases)."
+> "Read next.md. The 4 follow-ups from the previous next.md are all closed and committed on `claude/zealous-brahmagupta-b08415`. Push + PR are pending. The two open questions are (1) worktree prune (destructive — needs explicit go-ahead) and (2) what to do about the parent-master divergence."
