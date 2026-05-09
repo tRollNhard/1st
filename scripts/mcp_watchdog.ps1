@@ -178,6 +178,10 @@ function Ensure-WindowsMcpAbsoluteUv {
         Write-Log "WARN  - could not parse Windows-MCP manifest: $($_.Exception.Message)"
         return
     }
+    if (-not $manifest.server -or -not $manifest.server.mcp_config) {
+        Write-Log "WARN  - Windows-MCP manifest schema unexpected (missing server.mcp_config)"
+        return
+    }
     $current = $manifest.server.mcp_config.command
     if ($current -eq $UvAbsolutePath) {
         Write-Log "OK    - Windows-MCP manifest pinned to absolute uv"
@@ -216,8 +220,15 @@ function Ensure-FilesystemDrivesTrimmed {
         if ($cap -gt 0) { $desired += ("{0}:\" -f $d.Name) }
     }
     if (-not $desired -or $desired.Count -eq 0) { return }
+    # Normalize trailing slash + case on drive-root entries so 'c:/', 'C:\',
+    # and 'C:' all compare equal. Sub-paths (e.g. 'C:\Users\foo') stay as-is
+    # so they still trigger a rewrite to drive-root canonical form.
+    $normCurrent = foreach ($p in $current) {
+        if ($p -match '^([A-Za-z]):[\\/]?$') { '{0}:\' -f $matches[1].ToUpper() }
+        else { $p }
+    }
     # Compare sorted arrays; only rewrite if changed.
-    $a = ($current | Sort-Object) -join '|'
+    $a = ($normCurrent | Sort-Object) -join '|'
     $b = ($desired | Sort-Object) -join '|'
     if ($a -eq $b) {
         Write-Log "OK    - Filesystem allowed_directories matches mounted drives ($($desired -join ', '))"
