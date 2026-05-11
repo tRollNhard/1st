@@ -29,7 +29,7 @@ const Anthropic = require(
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-sonnet-4-6-20250620';
+const MODEL = 'claude-sonnet-4-6';
 const MAX_BYTES_DEFAULT = 120_000;           // per-file cap; skip larger files by default
 const SKILL_PATH = path.join(
   __dirname, '..', 'custom-skills', 'code-improver', 'SKILL.md'
