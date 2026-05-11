@@ -1,0 +1,17 @@
+# Coverage configuration for the skill-validate CI workflow.
+#
+# Scope: only the two source files our pytest suites target. We
+# explicitly do NOT measure the test files themselves, server/, or
+# the other Electron apps — those have no pytest coverage and would
+# only add noise to the report.
+[run]
+include =
+    skill_crawler.py
+    scripts/validate-skills.py
+
+[report]
+show_missing = True
+skip_covered = False
+# Coverage is informational for now — the CI step does not fail on
+# low coverage. To enforce a floor later, add:
+#   fail_under = 80
