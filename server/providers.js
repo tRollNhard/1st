@@ -132,29 +132,39 @@ class ClaudeProvider {
     while (continueLoop) {
       continueLoop = false;
 
+      // Bail before opening an HTTP stream if the caller already aborted.
+      if (signal?.aborted) return;
+
       const stream = this.client.messages.stream(requestParams);
       let fullResponse = '';
       let toolUseBlocks = [];
 
-      for await (const event of stream) {
-        if (signal?.aborted) {
-          stream.controller.abort();
-          return;
-        }
+      // Wire the caller's signal to the SDK's abort surface so cancellation
+      // is reactive (kills the in-flight HTTP request immediately) rather
+      // than waiting for the next chunk boundary. The SDK then throws
+      // APIUserAbortError, which propagates out of the for-await and is
+      // handled by the existing catch in server/index.js.
+      const onAbort = () => stream.abort();
+      signal?.addEventListener('abort', onAbort, { once: true });
 
-        if (event.type === 'content_block_delta' && event.delta?.text) {
-          fullResponse += event.delta.text;
-          yield event.delta.text;
-        }
+      try {
+        for await (const event of stream) {
+          if (event.type === 'content_block_delta' && event.delta?.text) {
+            fullResponse += event.delta.text;
+            yield event.delta.text;
+          }
 
-        // Collect tool use blocks
-        if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-          toolUseBlocks.push({ id: event.content_block.id, name: event.content_block.name, input: '' });
+          // Collect tool use blocks
+          if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+            toolUseBlocks.push({ id: event.content_block.id, name: event.content_block.name, input: '' });
+          }
+          if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+            const last = toolUseBlocks[toolUseBlocks.length - 1];
+            if (last) last.input += event.delta.partial_json;
+          }
         }
-        if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
-          const last = toolUseBlocks[toolUseBlocks.length - 1];
-          if (last) last.input += event.delta.partial_json;
-        }
+      } finally {
+        signal?.removeEventListener('abort', onAbort);
       }
 
       // If Claude requested tool calls, execute them and continue
