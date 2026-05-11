@@ -11,15 +11,14 @@ exist in parallel.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+# sys.path setup lives in scripts/conftest.py so it's not duplicated per file.
+import skill_crawler
 
-import skill_crawler  # noqa: E402  (path inserted above)
+REPO_ROOT = Path(__file__).parent.parent
 
 
 def _md(frontmatter: str) -> str:
