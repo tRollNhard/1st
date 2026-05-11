@@ -155,7 +155,7 @@ function readSkillContent(skillPath) {
 class ClaudeProvider {
   constructor() {
     this.client = new Anthropic();
-    this.defaultModel = 'claude-sonnet-4-6-20250620';
+    this.defaultModel = 'claude-sonnet-4-6';
   }
 
   async *stream(message, { model, signal, chatId = 'default' } = {}) {
