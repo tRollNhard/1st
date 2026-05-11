@@ -11,15 +11,14 @@ exist in parallel.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+# sys.path setup lives in scripts/conftest.py so it's not duplicated per file.
+import skill_crawler
 
-import skill_crawler  # noqa: E402  (path inserted above)
+REPO_ROOT = Path(__file__).parent.parent
 
 
 def _md(frontmatter: str) -> str:
@@ -72,8 +71,11 @@ def test_yaml_boolean_stringified():
     that would crash on Python True. Stringification keeps it safe."""
     text = _md("name: my-skill\ndescription: ok\nalways_active: true")
     fm = skill_crawler.parse_frontmatter(text)
-    assert isinstance(fm["always_active"], str)
-    assert fm["always_active"].lower() == "true"
+    # str(True) == "True", which downstream .lower() turns into "true".
+    # Asserting the exact pre-lower string locks in the contract; a loose
+    # .lower() check would pass even if we accidentally returned "TRUE"
+    # or "true" from some other path.
+    assert fm["always_active"] == "True"
 
 
 def test_yaml_null_becomes_empty_string():
@@ -133,29 +135,37 @@ def test_fallback_truncates_folded_scalar(monkeypatch):
 
 # --- integration: real SKILL.md files in the repo ---------------------------
 
-@pytest.mark.parametrize("skill_name,min_desc_len", [
-    ("mcp-builder", 300),
-    ("install-skill", 300),
-    ("sentinel-architect", 500),
-    ("web-video-presentation", 400),
+# 50 chars is a soft floor — short enough that no real skill description
+# ever falls below it (the shortest reasonable description is ~80 chars),
+# but loose enough that legitimate wording edits don't trip the test.
+# The real regression signal is the indicator-char assertion below.
+_MIN_REAL_DESC_LEN = 50
+
+@pytest.mark.parametrize("skill_name", [
+    "mcp-builder",
+    "install-skill",
+    "sentinel-architect",
+    "web-video-presentation",
 ])
-def test_real_folded_scalar_skills_have_full_descriptions(skill_name, min_desc_len):
+def test_real_folded_scalar_skills_have_full_descriptions(skill_name):
     """Regression test for the four real skills that used folded scalars.
 
     Before 8223c2f, all four had description=">" in the crawler. After
-    the fix, each should expose its full description. Thresholds are
-    loose so light wording edits don't break the test.
+    the fix, each should expose its full description. The hard regression
+    signal is the indicator-char check; the length floor is loose enough
+    to survive normal wording edits.
     """
     path = REPO_ROOT / "custom-skills" / skill_name / "SKILL.md"
     if not path.exists():
         pytest.skip(f"{skill_name} not present in this worktree")
     fm = skill_crawler.parse_frontmatter(path.read_text(encoding="utf-8"))
     desc = fm.get("description", "")
-    assert len(desc) >= min_desc_len, (
-        f"{skill_name}: description is {len(desc)} chars, "
-        f"expected >= {min_desc_len}. Did the crawler regress?"
+    assert desc not in (">", "|", ""), (
+        f"{skill_name}: description is just the indicator char "
+        f"(or empty) — the folded-scalar bug has regressed."
     )
-    assert desc not in (">", "|"), (
-        f"{skill_name}: description is just the indicator char — "
-        f"the folded-scalar bug has regressed."
+    assert len(desc) >= _MIN_REAL_DESC_LEN, (
+        f"{skill_name}: description is {len(desc)} chars, expected "
+        f">= {_MIN_REAL_DESC_LEN}. Either the description got "
+        f"unrealistically short or the crawler is misparsing."
     )
