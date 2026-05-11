@@ -6,6 +6,8 @@ on:
       - 'custom-skills/**'
       - 'scripts/validate-skills.py'
       - 'scripts/test_validate_skills.py'
+      - 'scripts/test_skill_crawler.py'
+      - 'skill_crawler.py'
       - 'requirements.txt'
       - '.github/workflows/skill-validate.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'custom-skills/**'
       - 'scripts/validate-skills.py'
       - 'scripts/test_validate_skills.py'
+      - 'scripts/test_skill_crawler.py'
+      - 'skill_crawler.py'
       - 'requirements.txt'
 
 jobs:
@@ -28,8 +32,8 @@ jobs:
 
       - run: pip install -r requirements.txt pytest
 
-      - name: Run validator unit tests
-        run: python -m pytest scripts/test_validate_skills.py -v
+      - name: Run unit tests (validator + crawler)
+        run: python -m pytest scripts/test_validate_skills.py scripts/test_skill_crawler.py -v
 
       - name: Validate SKILL.md frontmatter
         run: python scripts/validate-skills.py custom-skills
