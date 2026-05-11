@@ -9,6 +9,7 @@ on:
       - 'scripts/test_skill_crawler.py'
       - 'skill_crawler.py'
       - 'requirements.txt'
+      - '.coveragerc'
       - '.github/workflows/skill-validate.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'scripts/test_skill_crawler.py'
       - 'skill_crawler.py'
       - 'requirements.txt'
+      - '.coveragerc'
 
 jobs:
   validate:
@@ -30,10 +32,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install -r requirements.txt pytest
+      - run: pip install -r requirements.txt pytest pytest-cov
 
-      - name: Run unit tests (validator + crawler)
-        run: python -m pytest scripts/test_validate_skills.py scripts/test_skill_crawler.py -v
+      - name: Run unit tests with coverage
+        run: |
+          python -m pytest \
+            scripts/test_validate_skills.py \
+            scripts/test_skill_crawler.py \
+            --cov --cov-report=term-missing -v
 
       - name: Validate SKILL.md frontmatter
         run: python scripts/validate-skills.py custom-skills
