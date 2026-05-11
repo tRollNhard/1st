@@ -112,3 +112,16 @@ Tools: Whisper (`whisper file.wav --output_format vtt`), Descript, or hand-autho
 - [ ] WebVTT captions linked via `<track>`
 - [ ] No autoplay with sound; controls visible
 - [ ] Test in Safari, Chrome, Firefox before shipping
+
+## See also
+
+- **`SKILL.md`** (parent) — pipeline overview, storyboard format, accessibility
+  checklist, and the full export recipe this audio reference plugs into.
+- **`remotion-best-practices` skill** — companion for the *video* side of
+  presentation rendering. AUDIO.md covers narration capture, cleanup, and
+  encode; Remotion handles the React-driven slide rendering that becomes the
+  video track those narrations are muxed onto. Use both together when the
+  source-of-truth slides are code, not a deck file.
+- **WCAG 2.1 references** — [1.2.2 Captions](https://www.w3.org/WAI/WCAG21/Understanding/captions-prerecorded.html),
+  [1.2.5 Audio Description](https://www.w3.org/WAI/WCAG21/Understanding/audio-description-prerecorded.html),
+  [1.4.2 Audio Control](https://www.w3.org/WAI/WCAG21/Understanding/audio-control.html).
