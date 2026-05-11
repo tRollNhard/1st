@@ -53,6 +53,11 @@ async function buildSystemPrompt(message) {
   }
 
   const { alwaysActive, matched } = result;
+  // Per-request fence: prevents skill authors from pre-writing a matching
+  // closing tag at install time. Trade-off: every system prompt is unique,
+  // which defeats Anthropic's prompt-cache on the system block. Acceptable
+  // for current message volume; if cache hit-rate becomes load-bearing,
+  // rotate the fence per session (e.g. chatId) instead of per request.
   const fence = crypto.randomBytes(8).toString('hex');
   const blocks = [];
 
