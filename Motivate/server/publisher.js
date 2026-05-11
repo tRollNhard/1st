@@ -136,15 +136,26 @@ async function publishAll(videoPath, meta) {
 }
 
 // ─── Image: Instagram ─────────────────────────────────────────────────────────
-// FIX #5 — Instagram Graph API requires a publicly accessible image URL.
-// We upload to Imgur anonymously (no auth, free) to get a public URL first.
+// Instagram Graph API requires a publicly accessible image URL. We upload to
+// Imgur to get one. Register a personal app at https://api.imgur.com/oauth2/addclient
+// (Anonymous usage, no callback URL) and put the Client-ID in IMGUR_CLIENT_ID.
+// The previously-hardcoded shared community ID was already being throttled and
+// Imgur has been revoking anonymous shared IDs since 2023 — a personal one is
+// required for reliable posting.
 async function uploadToImgur(imagePath) {
+  const clientId = process.env.IMGUR_CLIENT_ID;
+  if (!clientId) {
+    throw new Error(
+      'IMGUR_CLIENT_ID not set. Register an app at https://api.imgur.com/oauth2/addclient ' +
+      '(Anonymous usage, no callback URL) and add IMGUR_CLIENT_ID=<your-id> to .env.'
+    );
+  }
   const imageBase64 = fs.readFileSync(imagePath).toString('base64');
   const res = await axios.post('https://api.imgur.com/3/image', {
     image: imageBase64,
     type: 'base64',
   }, {
-    headers: { Authorization: 'Client-ID 546c25a59c58ad7' }, // Imgur public client ID
+    headers: { Authorization: `Client-ID ${clientId}` },
   });
   if (!res.data?.data?.link) throw new Error('Imgur upload failed — no link returned');
   return res.data.data.link;
