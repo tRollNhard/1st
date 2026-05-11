@@ -112,13 +112,21 @@ fi
 if [ -n "$PYTHON_CMD" ]; then
     echo ""
     echo "Installing Python dependencies..."
-    if "$PYTHON_CMD" -m pip install --user -r requirements.txt; then
+    # `pip install --user` is rejected inside a virtualenv (PEP 370). Only pass
+    # --user when we're using a "real" interpreter — i.e. sys.prefix matches
+    # sys.base_prefix. Inside a venv the venv itself handles isolation.
+    if "$PYTHON_CMD" -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
+        PIP_USER_FLAG=""  # in a venv — --user would error
+    else
+        PIP_USER_FLAG="--user"
+    fi
+    if "$PYTHON_CMD" -m pip install $PIP_USER_FLAG -r requirements.txt; then
         echo "Python dependencies installed"
     else
         echo "WARNING: Python dependency install failed."
         echo "  Skill matching will work but folded-scalar descriptions"
         echo "  in SKILL.md frontmatter will be truncated until pyyaml is"
-        echo "  installed manually: $PYTHON_CMD -m pip install -r requirements.txt"
+        echo "  installed manually: $PYTHON_CMD -m pip install $PIP_USER_FLAG -r requirements.txt"
     fi
 else
     echo ""

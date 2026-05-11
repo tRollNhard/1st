@@ -160,9 +160,11 @@ def test_real_folded_scalar_skills_have_full_descriptions(skill_name):
         pytest.skip(f"{skill_name} not present in this worktree")
     fm = skill_crawler.parse_frontmatter(path.read_text(encoding="utf-8"))
     desc = fm.get("description", "")
-    assert desc not in (">", "|", ""), (
+    # .strip() so a future fallback-parser tweak that leaves trailing
+    # whitespace (e.g. "> ", ">\n") can't sneak past this regression check.
+    assert desc.strip() not in (">", "|", ""), (
         f"{skill_name}: description is just the indicator char "
-        f"(or empty) — the folded-scalar bug has regressed."
+        f"(or empty/whitespace) — the folded-scalar bug has regressed."
     )
     assert len(desc) >= _MIN_REAL_DESC_LEN, (
         f"{skill_name}: description is {len(desc)} chars, expected "

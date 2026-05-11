@@ -23,6 +23,7 @@ on:
       - 'skill_crawler.py'
       - 'requirements.txt'
       - '.coveragerc'
+      - '.github/workflows/skill-validate.yml'
 
 jobs:
   validate:
