@@ -1,0 +1,11 @@
+# Python dependencies for skill_crawler.py and scripts/validate-skills.py.
+#
+# pyyaml is required by both:
+#   - validate-skills.py: parses SKILL.md frontmatter to enforce the
+#     agentskills.io spec in CI.
+#   - skill_crawler.py: parses SKILL.md frontmatter for keyword matching.
+#     The crawler has a line-parser fallback if pyyaml is missing, but
+#     that fallback can't read YAML folded scalars (`description: >`),
+#     so skills using folded scalars get truncated descriptions and
+#     stop matching. Pinning pyyaml here keeps that footgun closed.
+pyyaml>=6.0

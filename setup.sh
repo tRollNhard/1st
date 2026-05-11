@@ -97,6 +97,33 @@ echo "Installing project dependencies..."
 echo ""
 npm install
 cd server && npm install && cd ..
+
+# Python deps for skill_crawler.py (folded-scalar parsing) + validate-skills.py.
+# Non-fatal: skill matching still works without pyyaml (degraded — folded
+# scalars in SKILL.md frontmatter get truncated), so we warn but don't abort.
+if command -v python &> /dev/null; then
+    PYTHON_CMD=python
+elif command -v python3 &> /dev/null; then
+    PYTHON_CMD=python3
+else
+    PYTHON_CMD=
+fi
+
+if [ -n "$PYTHON_CMD" ]; then
+    echo ""
+    echo "Installing Python dependencies..."
+    if "$PYTHON_CMD" -m pip install --user -r requirements.txt; then
+        echo "Python dependencies installed"
+    else
+        echo "WARNING: Python dependency install failed."
+        echo "  Skill matching will work but folded-scalar descriptions"
+        echo "  in SKILL.md frontmatter will be truncated until pyyaml is"
+        echo "  installed manually: $PYTHON_CMD -m pip install -r requirements.txt"
+    fi
+else
+    echo ""
+    echo "WARNING: Python not found. Install Python 3.10+ to enable skill matching."
+fi
 echo ""
 echo "Dependencies installed"
 echo ""

@@ -5,12 +5,14 @@ on:
     paths:
       - 'custom-skills/**'
       - 'scripts/validate-skills.py'
+      - 'requirements.txt'
       - '.github/workflows/skill-validate.yml'
   push:
     branches: [main]
     paths:
       - 'custom-skills/**'
       - 'scripts/validate-skills.py'
+      - 'requirements.txt'
 
 jobs:
   validate:
@@ -22,7 +24,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install pyyaml
+      - run: pip install -r requirements.txt
 
       - name: Validate SKILL.md frontmatter
         run: python scripts/validate-skills.py custom-skills
