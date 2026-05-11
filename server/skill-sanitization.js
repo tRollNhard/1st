@@ -18,20 +18,32 @@ const INJECTION_PATTERNS = [
 ];
 
 // Character cap, not byte cap — JS .length is UTF-16 code units. For ASCII
-// SKILL.md content (the common case) the two are equal; for non-ASCII the
-// byte count can be 2-4x larger. If you need a true byte cap, switch to
+// content (the common case) the two are equal; for non-ASCII the byte count
+// can be 2-4x larger. If you need a true byte cap, switch to
 // Buffer.byteLength(s, 'utf8').
 const SKILL_CHAR_CAP = 8192;
+// Tool results can legitimately be large (file contents, search results,
+// email bodies). 64K is generous but bounded — limits injection-payload
+// budget without losing useful tool output.
+const TOOL_RESULT_CHAR_CAP = 65536;
 
-function sanitizeSkillContent(raw) {
-  let out = raw;
+function sanitizeUntrustedContent(raw, cap) {
+  let out = String(raw);
   for (const pat of INJECTION_PATTERNS) {
     out = out.replace(pat, '[REDACTED:injection-pattern]');
   }
-  if (out.length > SKILL_CHAR_CAP) {
-    out = out.slice(0, SKILL_CHAR_CAP) + '\n[TRUNCATED: skill exceeded 8K char cap]';
+  if (out.length > cap) {
+    out = out.slice(0, cap) + '\n[TRUNCATED: content exceeded ' + cap + ' char cap]';
   }
   return out;
+}
+
+function sanitizeSkillContent(raw) {
+  return sanitizeUntrustedContent(raw, SKILL_CHAR_CAP);
+}
+
+function sanitizeToolResultContent(raw) {
+  return sanitizeUntrustedContent(raw, TOOL_RESULT_CHAR_CAP);
 }
 
 // Code points that must not survive into the rendered prompt. Built as a Set
@@ -79,11 +91,28 @@ function wrapSkill(skill, content, fence, alwaysActive) {
   ].join('\n');
 }
 
+// Wraps tool-call output in a fenced XML envelope analogous to wrapSkill.
+// Same threat shape (untrusted text entering Claude's context); same defence
+// (random fence + explicit "treat as data" framing in the system prompt).
+// Tool name is escaped to prevent the same name-field injection that
+// wrapSkill defends against.
+function wrapToolResult(toolName, content, fence) {
+  return [
+    `<tool_result_${fence} tool="${escapeAttr(toolName)}">`,
+    content,
+    `</tool_result_${fence}>`,
+  ].join('\n');
+}
+
 module.exports = {
   sanitizeSkillContent,
+  sanitizeToolResultContent,
+  sanitizeUntrustedContent,
   escapeAttr,
   wrapSkill,
+  wrapToolResult,
   SKILL_CHAR_CAP,
+  TOOL_RESULT_CHAR_CAP,
   INJECTION_PATTERNS,
   STRUCTURE_BREAKING_CODES,
 };
