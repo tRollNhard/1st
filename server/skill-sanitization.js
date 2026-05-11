@@ -104,10 +104,12 @@ function wrapToolResult(toolName, content, fence) {
   ].join('\n');
 }
 
+// sanitizeUntrustedContent is intentionally NOT exported — callers should
+// use the cap-bound wrappers (sanitizeSkillContent, sanitizeToolResultContent)
+// so the cap choice stays explicit at every call site.
 module.exports = {
   sanitizeSkillContent,
   sanitizeToolResultContent,
-  sanitizeUntrustedContent,
   escapeAttr,
   wrapSkill,
   wrapToolResult,

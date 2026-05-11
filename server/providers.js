@@ -12,6 +12,12 @@ const path = require('path');
 const crypto = require('crypto');
 
 // ── Conversation memory per chat ────────────────────────────────────────────
+// RESOURCE: these three maps are keyed by chatId and pruned only by the
+// CHAT_TTL_MS sweep below. There's no max-size eviction. A pathological
+// caller (UI bug minting a fresh chatId per message, fuzzer, etc.) could
+// inflate them within a 2-hour window. At ~100 bytes/entry the realistic
+// ceiling is small for this app, but worth knowing if the server ever ends
+// up multi-tenant or facing untrusted chatId input.
 const chatHistories = new Map();
 const chatTimestamps = new Map();
 // Per-chat XML fence for wrapping untrusted content (skill content +
