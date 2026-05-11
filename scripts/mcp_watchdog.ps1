@@ -152,7 +152,9 @@ function Ensure-Uv {
     Write-Log "DOWN  - uv missing from PATH (Windows-MCP will fail), installing"
     $winget = (Get-Command winget.exe -ErrorAction SilentlyContinue).Source
     if (-not $winget) { Write-Log "  FAILED - winget not available"; return $false }
-    & $winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
+    # --scope user keeps the install per-user (no UAC) so the hidden-window
+    # watchdog can complete without a prompt it can't answer.
+    & $winget install --id=astral-sh.uv -e --scope user --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) { Write-Log "  RESTORED - uv installed"; return $true }
     Write-Log "  FAILED - winget exit $LASTEXITCODE"
     return $false
