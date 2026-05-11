@@ -2,7 +2,13 @@
 name: web-video-presentation
 version: 0.1
 license: MIT
-description: Build web-deliverable video presentations — slide-driven storyboards, synced narration, captions, and MP4/WebM export tuned for browser playback. Use when turning slides, a script, or a notion of a talk into a self-contained video that plays inline on the web. Triggered by "create a video presentation", "turn these slides into a video", "record narration over slides", "screencast presentation", "explainer video for the web", "voiceover slideshow".
+description: >
+  Build web-deliverable video presentations — slide-driven storyboards, synced
+  narration, captions, and MP4/WebM export tuned for browser playback. Use when
+  turning slides, a script, or a notion of a talk into a self-contained video
+  that plays inline on the web. Triggered by "create a video presentation",
+  "turn these slides into a video", "record narration over slides", "screencast
+  presentation", "explainer video for the web", "voiceover slideshow".
 ---
 
 # Web Video Presentation Skill

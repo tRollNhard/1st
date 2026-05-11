@@ -15,6 +15,16 @@ import json
 import pathlib
 import zipfile
 
+# pyyaml is optional. With it, parse_frontmatter handles folded scalars
+# (description: >) and other YAML constructs correctly. Without it, falls
+# back to a line-based parser that can't see past `description: >` — skills
+# using folded scalars will have truncated descriptions in matching.
+try:
+    import yaml as _yaml
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
+
 # Force UTF-8 stdout on Windows consoles whose default cp1252/charmap can't
 # encode the em-dashes and box-drawing characters used in --list output.
 # Per PEP 528 + Python 3.7+ TextIOWrapper.reconfigure.
@@ -95,12 +105,30 @@ def find_all_skill_archives() -> list[dict]:
 
 
 def parse_frontmatter(text: str) -> dict:
-    """Extract simple key: value frontmatter from a markdown file."""
-    data = {}
+    """Extract YAML frontmatter from a markdown file.
+
+    Prefers yaml.safe_load when pyyaml is available — handles folded scalars
+    (description: >), block scalars (|), and quoted strings correctly. Falls
+    back to a line-based parser if pyyaml is missing; the fallback can't see
+    past `description: >` so folded-scalar values get truncated to the
+    indicator char. All values are coerced to strings since downstream code
+    calls .lower()/.strip() and would crash on bools or lists.
+    """
     match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
     if not match:
-        return data
-    for line in match.group(1).splitlines():
+        return {}
+    raw = match.group(1)
+
+    if _HAS_YAML:
+        try:
+            loaded = _yaml.safe_load(raw)
+            if isinstance(loaded, dict):
+                return {k: ("" if v is None else str(v)) for k, v in loaded.items()}
+        except _yaml.YAMLError:
+            pass  # fall through to line parser
+
+    data = {}
+    for line in raw.splitlines():
         if ":" not in line:
             continue
         key, _, value = line.partition(":")

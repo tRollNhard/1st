@@ -47,9 +47,12 @@ gh skill preview <owner/repo> <skill>      # review before install
 gh skill install <owner/repo> <skill>      # installs to .agents/skills/
 ```
 
-For `claude-plugins-official` skills, search by skill name first — the official
-plugins are usually mirrored to public GitHub repos. If no clear match, try
-common owners: `anthropics`, `claude-plugins-official`, `claude-plugin-official`.
+**Never assume an owner — always run `gh skill search` first.** Owners rename,
+repos get archived, and any cached mapping rots fast. The official plugins are
+usually mirrored to public GitHub repos; if a name search doesn't surface a
+clear match, you can try common owners (`anthropics`, `claude-plugins-official`,
+`claude-plugin-official`) as additional search queries, never as install
+destinations.
 
 If `gh auth status` shows logged-out, run `gh auth login --web` and complete
 the device-code flow.
@@ -107,18 +110,6 @@ search dirs. `gh skill install` writes to `.agents/skills/`, and GSD writes
 to the user-global Claude home — `~/.claude/skills/` on macOS/Linux,
 `%USERPROFILE%\.claude\skills\` on Windows. If the harness should auto-match
 those, add them to the crawler's `search_dirs`.
-
-## Common name → GitHub-repo mappings
-
-Best-effort cache. Search to confirm before installing.
-
-| Anthropic name | GitHub guess |
-|---|---|
-| `skill-creator@claude-plugins-official` | `anthropics/claude-skills` skill `skill-creator` |
-| `superpowers@claude-plugin-official` | community fork — search first; `RaheesAhmed/SajiCode` ships a `superpowers` skill |
-| `mcp-builder@claude-plugins-official` | `anthropics/claude-skills` skill `mcp-builder` |
-
-Always run `gh skill search <name>` first to verify — owners change.
 
 ## Constraints
 
