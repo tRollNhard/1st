@@ -31,7 +31,12 @@ const chatTimestamps = new Map();
 // after CHAT_TTL_MS so worst-case fence reuse is 2 hours.
 const chatFences = new Map();
 
-// Clean up chats older than 2 hours every 10 minutes
+// Clean up chats older than 2 hours every 10 minutes.
+// `.unref()` lets the event loop exit naturally when nothing else is keeping
+// it alive (e.g. when this module is `require()`d by a test file). Without
+// unref, `node --test server/skill-cache-lru.test.js` would hang for 10 min
+// waiting for the next tick. Production use (`server/index.js`) still keeps
+// the process up via Express's listening socket, so the cleanup keeps firing.
 const CHAT_TTL_MS = 2 * 60 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
@@ -42,7 +47,7 @@ setInterval(() => {
       chatFences.delete(id);
     }
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 function getHistory(chatId) {
   chatTimestamps.set(chatId, Date.now());
@@ -71,11 +76,19 @@ async function buildSystemPrompt(message, chatId) {
   const cached = skillCache.get(cacheKey);
   let result;
   if (cached && Date.now() - cached.ts < SKILL_CACHE_TTL) {
+    // LRU touch — re-insert so most-recently-accessed sits at the tail of the
+    // Map's insertion-ordered iteration. Without this, eviction below would
+    // drop the hottest entry (the one we just re-read) instead of the coldest.
+    skillCache.delete(cacheKey);
+    skillCache.set(cacheKey, cached);
     result = cached.data;
   } else {
     result = await matchSkills(message);
     skillCache.set(cacheKey, { data: result, ts: Date.now() });
     if (skillCache.size > 200) {
+      // Evict the least-recently-used entry. Map iteration is insertion order;
+      // LRU "touch" above moves accessed entries to the tail, so the head is
+      // genuinely the LRU now (was FIFO before the touch was added).
       const oldest = skillCache.keys().next().value;
       skillCache.delete(oldest);
     }
@@ -285,4 +298,4 @@ function createProvider(name = 'claude') {
   return factory();
 }
 
-module.exports = { createProvider, buildSystemPrompt };
+module.exports = { createProvider, buildSystemPrompt, skillCache, SKILL_CACHE_TTL };
