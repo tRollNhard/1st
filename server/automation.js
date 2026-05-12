@@ -116,19 +116,41 @@ async function postToSocial(platform, content, imagePrompt) {
 
 // ── Automation engine ─────────────────────────────────────────────────────────
 
+// Cap on the in-memory dedup set of RSS GUIDs. Without a cap, a long-running
+// process polling a feed every 30 min for months would grow `processedGuids`
+// unboundedly (slow memory leak). 5000 GUIDs * ~80 bytes each ≈ 400 KB —
+// orders of magnitude more than any realistic poll backlog, but bounded.
+// FIFO eviction (insertion order) is the correct semantics: GUIDs are only
+// ever looked up by exact match for dedup, no "recently seen" notion exists.
+const PROCESSED_GUID_CAP = 5000;
+
 class SocialAutomation {
   constructor() {
     this.client = new Anthropic();
     this.isRunning = false;
     this.intervalId = null;
     this.jobHistory = [];        // newest first, capped at 100
-    this.processedGuids = new Set();
+    // Map (not Set) so we get reliable insertion-order iteration for FIFO
+    // eviction. Value is unused — we only need the key for `.has()`/`.set()`.
+    this.processedGuids = new Map();
     this.config = {
       rssUrl: 'https://news.google.com/rss/search?q=AI+tools+news&hl=en-US&gl=US&ceid=US:en',
       pollIntervalMs: 30 * 60 * 1000,  // 30 min
       platforms: ['twitter', 'facebook', 'instagram'],
       maxItemsPerCycle: 3,
     };
+  }
+
+  _rememberGuid(guid) {
+    // Idempotent insert with FIFO eviction once cap is reached.
+    if (this.processedGuids.has(guid)) return;
+    if (this.processedGuids.size >= PROCESSED_GUID_CAP) {
+      // Delete oldest (first inserted) entry. Map iteration is insertion-
+      // ordered per ECMAScript spec, so `.keys().next()` gives us the eldest.
+      const oldest = this.processedGuids.keys().next().value;
+      if (oldest !== undefined) this.processedGuids.delete(oldest);
+    }
+    this.processedGuids.set(guid, 1);
   }
 
   configure(updates = {}) {
@@ -157,7 +179,7 @@ class SocialAutomation {
 
   async processItem(item) {
     if (this.processedGuids.has(item.guid)) return null;
-    this.processedGuids.add(item.guid);
+    this._rememberGuid(item.guid);
 
     const job = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -269,4 +291,10 @@ class SocialAutomation {
   }
 }
 
-module.exports = new SocialAutomation();
+// Default export: shared singleton used by the Express routes. The class +
+// PROCESSED_GUID_CAP are also exposed as named properties for tests that need
+// to instantiate a fresh, isolated instance.
+const singleton = new SocialAutomation();
+singleton.SocialAutomation = SocialAutomation;
+singleton.PROCESSED_GUID_CAP = PROCESSED_GUID_CAP;
+module.exports = singleton;
