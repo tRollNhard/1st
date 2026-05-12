@@ -1,20 +1,45 @@
 const path = require('path');
 
 // KNOWN GAP: these patterns are a best-effort tripwire for the most common
-// English injection idioms, not a complete defence. Known bypasses (tested
-// in skill-sanitization.test.js as `xfail` cases): verb swaps (override,
-// pretend, act as, skip, bypass), contraction forms ("you're now"), word
-// inserts ("ignore THE previous"), homoglyph/zero-width obfuscation,
-// non-English, Anthropic-internal `\n\nHuman:` tokens, Llama/Gemma tokens.
-// The primary defence is the random-fenced XML envelope + explicit
-// data-vs-instructions framing in the wrapper instruction; this pattern set
-// is layer C in a 3-layer defence (see scratch/skill-sanitization-PROPOSAL.md).
+// English injection idioms, not a complete defence. Remaining documented
+// bypasses (tested in skill-sanitization.test.js as `xfail` cases):
+//   - homoglyph obfuscation (Cyrillic i, Greek o, etc.)
+//   - zero-width chars splitting verbs ("i<ZWSP>gnore")
+//   - non-English (e.g. Spanish "ignora las instrucciones anteriores")
+// Closing the homoglyph/zero-width cases requires NFKC + confusable-mapping
+// normalization on a copy before pattern match; closing non-English requires
+// a multilingual idiom corpus. Both are out of scope for layer C; the primary
+// defence is the random-fenced XML envelope + explicit data-vs-instructions
+// framing in the wrapper instruction (layers A and B). See
+// scratch/skill-sanitization-PROPOSAL.md.
 const INJECTION_PATTERNS = [
-  /\b(ignore|disregard|forget)\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|prompts?|messages?|context|rules?)\b/gi,
-  /\byou\s+are\s+now\s+(?:a\s+)?(?:different|new)\b/gi,
+  // Instruction-override idioms. Optional article/possessive ("the", "your",
+  // "any", "these") between verb and target closes the word-insert bypass.
+  // Verb list expanded to override/bypass/skip closes the verb-swap bypass.
+  /\b(?:ignore|disregard|forget|override|bypass|skip)\s+(?:all\s+|the\s+|any\s+|your\s+|my\s+|our\s+|these\s+|those\s+|some\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|prompts?|messages?|context|rules?)\b/gi,
+  // Role-reassignment, including the "you're now" contraction bypass.
+  /\byou(?:\s+are|'re)\s+now\s+(?:a\s+)?(?:different|new)\b/gi,
+  // New-role/persona declarations.
   /\bnew\s+(?:role|system\s+prompt|persona|instructions?)\s*[:=]/gi,
+  // Direct system/assistant turn injection at start of a line or message.
   /\b(?:system|assistant)\s*[:=]\s*["']?(?:you|your)/gi,
-  /<\|(?:im_start|im_end|system|user|assistant)\|>/gi,
+  // Verb-plus-role idioms: "pretend you are root", "act as admin", etc.
+  // Role list is narrow on purpose — only elevation/jailbreak signals, not
+  // any role word — so legitimate phrases like "pretend to be patient" don't
+  // false-positive.
+  /\b(?:pretend|act\s+as|behave\s+as|role-?play\s+as)\s+(?:you\s+are\s+)?(?:a\s+|an\s+|the\s+)?(?:root|admin|administrator|sysop|sysadmin|superuser|developer|jailbroken|unrestricted|uncensored|dan|sudo)\b/gi,
+  // ChatML / OpenAI / Llama-3 / Mistral special tokens. Broadened from a
+  // fixed alternation to any `<|token|>` shape (length-bounded to prevent
+  // catastrophic backtracking) so future model tokens are caught by default.
+  /<\|[a-zA-Z_][a-zA-Z0-9_]{0,32}\|>/g,
+  // Llama 2 / CodeLlama instruction format tokens.
+  /\[\/?INST\]|<<\/?SYS>>/gi,
+  // Anthropic legacy human/assistant turn markers. The `\n\n` prefix is the
+  // load-bearing context: a bare "Human:" or "Assistant:" inside prose is
+  // almost always benign (interview transcripts, chat-history quotes), but
+  // a doubled newline followed by one of those role words is the actual
+  // legacy-protocol turn boundary.
+  /\n\n(?:Human|Assistant)\s*:/g,
 ];
 
 // Character cap, not byte cap — JS .length is UTF-16 code units. For ASCII
