@@ -33,6 +33,10 @@ $BackendUrl   = 'http://localhost:3001/api/providers'
 $StaleDays    = 30
 # Claude Desktop extensions whose dialogs we want to silence
 $WatchedExtensions = @('Windows-MCP','Filesystem','pdf-viewer')
+# dxt manifest_version values we've verified our mutator is safe against.
+# If Anthropic ships a new schema, refuse to mutate until this list is updated
+# rather than silently writing to a structure that may have moved.
+$KnownDxtManifestVersions = @('0.3')
 
 function Write-Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg
@@ -178,6 +182,14 @@ function Ensure-WindowsMcpAbsoluteUv {
         $manifest = $raw | ConvertFrom-Json
     } catch {
         Write-Log "WARN  - could not parse Windows-MCP manifest: $($_.Exception.Message)"
+        return
+    }
+    if (-not $manifest.manifest_version) {
+        Write-Log "WARN  - Windows-MCP manifest missing manifest_version field (refusing to mutate unverified schema)"
+        return
+    }
+    if ($manifest.manifest_version -notin $KnownDxtManifestVersions) {
+        Write-Log "WARN  - Windows-MCP manifest_version '$($manifest.manifest_version)' not in known set [$($KnownDxtManifestVersions -join ', ')] (refusing to mutate -- schema may have moved)"
         return
     }
     if (-not $manifest.server -or -not $manifest.server.mcp_config) {
