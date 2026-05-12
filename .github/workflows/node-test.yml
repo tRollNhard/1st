@@ -1,0 +1,42 @@
+name: Node Tests
+
+# Runs node:test suites in server/ on PRs that touch server-side code.
+# Complements skill-validate.yml (which covers the Python side: skill_crawler,
+# validate-skills, and custom-skills frontmatter).
+
+on:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/node-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/node-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install server deps
+        run: npm ci
+        working-directory: server
+
+      - name: Run node:test suite
+        run: node --test *.test.js
+        working-directory: server
