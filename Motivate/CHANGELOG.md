@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `server/ab_compare.js` — A/B comparison script that produces two final MP4s from the same script + voiceover + music but with two distinct b-roll query strategies ("stationary heroic" vs "kinetic action") pulled from the same Pexels source. Used for visual side-by-side evaluation of b-roll style choices. Includes a built-in `FALLBACK_SCRIPT` ("rising after failure") so the comparison runs even when `ANTHROPIC_API_KEY` is missing or invalid; the daily pipeline still uses Claude when the real key is in `.env`. Run from `Motivate/`: `node server/ab_compare.js`. Output: `Motivate/output/<jobId>/A/final.mp4` and `B/final.mp4`.
+
 ### Changed
 - `server/publisher.js` `uploadToImgur` — the Imgur Client-ID is now read from `process.env.IMGUR_CLIENT_ID` instead of a hardcoded literal (`546c25a59c58ad7`) baked into the source. The function throws a clear error with the registration URL (`https://api.imgur.com/oauth2/addclient`) if the env var is missing, matching the convention already used for Instagram/LinkedIn/TikTok tokens elsewhere in the file. The stale `FIX #5` comment block was rewritten to document the rationale (Imgur has been revoking anonymous shared Client-IDs since 2023, so personal IDs are required for reliable Instagram posting).
 - `.env.example` — added `IMGUR_CLIENT_ID=` under the Instagram section with a one-line setup hint pointing at Imgur's app-registration page.
