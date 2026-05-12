@@ -15,9 +15,12 @@ const crypto = require('crypto');
 // RESOURCE: these three maps are keyed by chatId and pruned only by the
 // CHAT_TTL_MS sweep below. There's no max-size eviction. A pathological
 // caller (UI bug minting a fresh chatId per message, fuzzer, etc.) could
-// inflate them within a 2-hour window. At ~100 bytes/entry the realistic
-// ceiling is small for this app, but worth knowing if the server ever ends
-// up multi-tenant or facing untrusted chatId input.
+// inflate them within a 2-hour window. Approximate per-entry footprint:
+//   - chatHistories:  up to ~50 KB (50 messages × ~1 KB, trimmed at 50)
+//   - chatTimestamps: ~100 B (chatId string + number)
+//   - chatFences:     ~100 B (chatId string + 16-char hex)
+// Worth knowing if the server ever ends up multi-tenant or facing untrusted
+// chatId input.
 const chatHistories = new Map();
 const chatTimestamps = new Map();
 // Per-chat XML fence for wrapping untrusted content (skill content +
