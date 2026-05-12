@@ -31,6 +31,14 @@
 
       <div id="chat-list" role="list" aria-label="Chat history"></div>
       <div class="sidebar-footer">
+        <!--
+          MODEL IDs: these values MUST stay in sync with server/models.js
+          (the SSoT). A static HTML <select> can't `require()` a Node module,
+          so this is a known second source. The CI gate `npm run check:models`
+          asserts every value below matches an ID in MODELS. To add or rename
+          a model: update server/models.js, then update these <option> values,
+          then run `npm run check:models` to verify.
+        -->
         <select id="model-select" aria-label="Select model">
           <option value="claude-sonnet-4-6">Sonnet 4.6</option>
           <option value="claude-opus-4-7">Opus 4.7</option>

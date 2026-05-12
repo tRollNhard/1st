@@ -2,6 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const https = require('https');
 const http = require('http');
 const { executeTool, isConfigured: composioConfigured } = require('./composio');
+const { MODELS } = require('./models');
 
 // ── RSS utilities ─────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function parseRss(xml) {
 
 async function claudeComplete(client, prompt, maxTokens = 400) {
   const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: MODELS.HAIKU,
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
   });
