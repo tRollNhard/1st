@@ -26,10 +26,11 @@ const path = require('path');
 const Anthropic = require(
   path.join(__dirname, '..', 'server', 'node_modules', '@anthropic-ai', 'sdk')
 );
+const { MODELS } = require(path.join(__dirname, '..', 'server', 'models'));
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-sonnet-4-6';
+const MODEL = MODELS.SONNET;
 const MAX_BYTES_DEFAULT = 120_000;           // per-file cap; skip larger files by default
 const SKILL_PATH = path.join(
   __dirname, '..', 'custom-skills', 'code-improver', 'SKILL.md'

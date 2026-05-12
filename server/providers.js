@@ -7,6 +7,7 @@ const {
   wrapSkill,
   wrapToolResult,
 } = require('./skill-sanitization');
+const { MODELS } = require('./models');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -155,7 +156,7 @@ function readSkillContent(skillPath) {
 class ClaudeProvider {
   constructor() {
     this.client = new Anthropic();
-    this.defaultModel = 'claude-sonnet-4-6';
+    this.defaultModel = MODELS.DEFAULT;
   }
 
   async *stream(message, { model, signal, chatId = 'default' } = {}) {
