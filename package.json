@@ -9,6 +9,7 @@
     "server": "node server/index.js",
     "server:dev": "node --watch server/index.js",
     "review": "node scripts/code-improver.js",
+    "test": "node --test \"server/**/*.test.js\"",
     "visualizer": "electron visualization/main.js",
     "setup": "bash setup.sh"
   },

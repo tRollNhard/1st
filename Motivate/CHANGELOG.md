@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+### Changed
+- `server/publisher.js` `uploadToImgur` — the Imgur Client-ID is now read from `process.env.IMGUR_CLIENT_ID` instead of a hardcoded literal (`546c25a59c58ad7`) baked into the source. The function throws a clear error with the registration URL (`https://api.imgur.com/oauth2/addclient`) if the env var is missing, matching the convention already used for Instagram/LinkedIn/TikTok tokens elsewhere in the file. The stale `FIX #5` comment block was rewritten to document the rationale (Imgur has been revoking anonymous shared Client-IDs since 2023, so personal IDs are required for reliable Instagram posting).
+- `.env.example` — added `IMGUR_CLIENT_ID=` under the Instagram section with a one-line setup hint pointing at Imgur's app-registration page.
+
+### Security
+- Removed the hardcoded Imgur Client-ID from source. The previous shared community ID was at imminent risk of revocation (Imgur has been deprecating anonymous shared IDs since 2023), which would have caused silent Instagram-post failures with no log signal until users hit the broken path. Moving to a per-deployment env var also stops the ID from being included in fork/clone exfiltration and lets each operator rotate independently. Closes item #5 of the 2026-05-11 outstanding-issues triage on the parent Cowork repo.
 
 ## [2.0.0] - 2026-04-30
 
