@@ -4,10 +4,12 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const Anthropic = require('@anthropic-ai/sdk');
 const { createProvider } = require('./providers');
 const { isConfigured: composioReady, reset: composioReset } = require('./composio');
 const spotifyMcpRouter = require('./spotify-mcp');
 const automation = require('./automation');
+const { validateAgainstApi } = require('./models');
 
 const ENV_PATH = path.join(__dirname, '..', '.env');
 
@@ -224,4 +226,10 @@ app.listen(PORT, () => {
   console.log(`[SERVER] Anthropic key: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'MISSING'}`);
   console.log(`[SERVER] Composio key: ${process.env.COMPOSIO_API_KEY ? 'configured' : 'MISSING'}`);
   console.log(`[SERVER] Spotify MCP: http://localhost:${PORT}/mcp (lazy-loaded on first use)`);
+  // Best-effort: validate configured model IDs against Anthropic's live list.
+  // Fire-and-forget; the function catches its own errors and warns to console.
+  const _apiKey = process.env.ANTHROPIC_API_KEY;
+  if (process.env.NODE_ENV !== 'test' && _apiKey && _apiKey !== 'your-api-key-here') {
+    validateAgainstApi(new Anthropic()).catch(err => console.error('[MODELS] Boot validation failed:', err));
+  }
 });
