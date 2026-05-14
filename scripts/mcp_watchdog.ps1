@@ -188,8 +188,8 @@ function Ensure-WindowsMcpAbsoluteUv {
         Write-Log "WARN  - Windows-MCP manifest missing manifest_version field (refusing to mutate unverified schema)"
         return
     }
-    if ($manifest.manifest_version -notin $KnownDxtManifestVersions) {
-        Write-Log "WARN  - Windows-MCP manifest_version '$($manifest.manifest_version)' not in known set [$($KnownDxtManifestVersions -join ', ')] (refusing to mutate -- schema may have moved)"
+    if (([string]$manifest.manifest_version) -notin $KnownDxtManifestVersions) {
+        Write-Log "GUARD - Windows-MCP manifest_version '$($manifest.manifest_version)' not in known set [$($KnownDxtManifestVersions -join ', ')] (refusing to mutate -- schema may have moved)"
         return
     }
     if (-not $manifest.server -or -not $manifest.server.mcp_config) {
