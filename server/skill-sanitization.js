@@ -38,8 +38,8 @@ const INJECTION_PATTERNS = [
   // load-bearing context: a bare "Human:" or "Assistant:" inside prose is
   // almost always benign (interview transcripts, chat-history quotes), but
   // a doubled newline followed by one of those role words is the actual
-  // legacy-protocol turn boundary.
-  /\n\n(?:Human|Assistant)\s*:/g,
+  // legacy-protocol turn boundary. Case-insensitive: defence layer, not parser.
+  /\n\n(?:Human|Assistant)\s*:/gi,
 ];
 
 // Character cap, not byte cap — JS .length is UTF-16 code units. For ASCII
