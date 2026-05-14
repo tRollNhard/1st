@@ -228,7 +228,8 @@ app.listen(PORT, () => {
   console.log(`[SERVER] Spotify MCP: http://localhost:${PORT}/mcp (lazy-loaded on first use)`);
   // Best-effort: validate configured model IDs against Anthropic's live list.
   // Fire-and-forget; the function catches its own errors and warns to console.
-  if (process.env.ANTHROPIC_API_KEY) {
-    validateAgainstApi(new Anthropic());
+  const _apiKey = process.env.ANTHROPIC_API_KEY;
+  if (process.env.NODE_ENV !== 'test' && _apiKey && _apiKey !== 'your-api-key-here') {
+    validateAgainstApi(new Anthropic()).catch(err => console.error('[MODELS] Boot validation failed:', err));
   }
 });
