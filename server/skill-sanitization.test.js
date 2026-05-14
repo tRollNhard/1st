@@ -190,6 +190,21 @@ test('benign single-newline "Human: question" transcript is not redacted (turn m
   assert.doesNotMatch(out, /\[REDACTED/);
 });
 
+// ── INJECTION_PATTERNS ReDoS regression ─────────────────────────────────────
+// The bounded `{0,32}` cap on the ChatML pattern and the absence of nested
+// quantifiers in every other pattern keep INJECTION_PATTERNS linear under
+// adversarial input. This test locks that property in so a future relaxation
+// (e.g. dropping the cap, adding a nested quantifier) trips here instead of
+// degrading sanitize latency in production.
+
+test('ReDoS regression: 10K-char adversarial ChatML-shaped input completes fast', () => {
+  const adversarial = '<|' + 'a'.repeat(10000) + '|>';
+  const start = process.hrtime.bigint();
+  sanitizeSkillContent(adversarial);
+  const ms = Number(process.hrtime.bigint() - start) / 1e6;
+  assert.ok(ms < 100, `sanitize took ${ms.toFixed(1)}ms on 10K adversarial input (ReDoS suspect)`);
+});
+
 // ── escapeAttr ──────────────────────────────────────────────────────────────
 
 test('escapeAttr strips newlines that would break markdown headers', () => {
