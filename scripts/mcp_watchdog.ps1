@@ -303,7 +303,8 @@ function Prune-AuthCache {
             }
         }
         if ($pruned -gt 0) {
-            $keep | ConvertTo-Json -Depth 6 -Compress | Set-Content $AuthCache -NoNewline
+            $json = $keep | ConvertTo-Json -Depth 6 -Compress
+            Write-JsonNoBom $AuthCache $json
             Write-Log "PRUNE - removed $pruned stale auth-cache entries (>${StaleDays}d)"
         }
     } catch {
