@@ -303,7 +303,10 @@ function Prune-AuthCache {
             }
         }
         if ($pruned -gt 0) {
-            $keep | ConvertTo-Json -Depth 6 -Compress | Set-Content $AuthCache -NoNewline
+            # Match the encoding Node writes (UTF-8 no BOM). PS 5.1's Set-Content
+            # defaults to Windows-1252, which corrupts the file for any non-ASCII
+            # content and adds an encoding mismatch to whatever reads it next.
+            Write-JsonNoBom $AuthCache ($keep | ConvertTo-Json -Depth 6 -Compress)
             Write-Log "PRUNE - removed $pruned stale auth-cache entries (>${StaleDays}d)"
         }
     } catch {
